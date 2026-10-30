@@ -61,9 +61,12 @@ class VolumeOverlayService : Service() {
         params.gravity = Gravity.BOTTOM
         params.y = 150 // Margen desde abajo
 
-        overlayView = container
-        windowManager.addView(overlayView, params)
-        overlayView?.visibility = View.GONE // Oculto por defecto
+try {
+    windowManager.addView(overlayView, params)
+    overlayView?.visibility = View.GONE
+} catch (e: Exception) {
+    e.printStackTrace()
+}to
     }
 
     private fun setupVolumeObserver() {
