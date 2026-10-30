@@ -43,7 +43,9 @@ class MainActivity : ComponentActivity() {
     private var time by mutableStateOf("")
     private var date by mutableStateOf("")
     private var weather by mutableStateOf<WeatherData?>(null)
+
     private var odometerMeters by mutableStateOf(0f)
+    private var currentSpeedKmh by mutableStateOf(0f)
     private var odometerListener: LocationListener? = null
 
     private var media by mutableStateOf(MediaState())
@@ -165,6 +167,7 @@ class MainActivity : ComponentActivity() {
                     w?.headline ?: "--°C",
                     w?.feelsLine ?: "",
                     media,
+                    formatSpeedKmh(currentSpeedKmh),
                     formatOdometerKm(odometerMeters),
                     actions,
                 )
@@ -219,8 +222,9 @@ class MainActivity : ComponentActivity() {
 
     private fun startOdometerTracking() {
         stopOdometerTracking()
-        odometerListener = LocationHelper.startOdometerTracking(this) { totalMeters ->
+        odometerListener = LocationHelper.startOdometerTracking(this) { totalMeters, speedKmh ->
             odometerMeters = totalMeters
+            currentSpeedKmh = speedKmh
         }
     }
 
@@ -235,6 +239,9 @@ class MainActivity : ComponentActivity() {
 
     private fun formatOdometerKm(meters: Float): String =
         String.format(Locale.US, "%,.0f", meters / 1000f)
+
+    private fun formatSpeedKmh(speedKmh: Float): String =
+        String.format(Locale.US, "%,.0f", speedKmh)
 
     private fun openRearCamera() {
         val saved = getSharedPreferences("launcher", MODE_PRIVATE).getString("camera_pkg", null)
