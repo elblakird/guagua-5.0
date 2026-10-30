@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.sp
 import com.mivehiculo.launcher.Config
 import com.mivehiculo.launcher.R
 import com.mivehiculo.launcher.data.MediaState
-import com.mivehiculo.launcher.data.Mock
 import kotlinx.coroutines.delay
 
 data class HomeActions(
@@ -156,7 +155,13 @@ private fun FloatingCard(
 }
 
 @Composable
-private fun RoundButton(glyph: Glyph, diameter: Dp, background: Color, foreground: Color, onClick: () -> Unit) {
+private fun RoundButton(
+    glyph: Glyph,
+    diameter: Dp,
+    background: Color,
+    foreground: Color,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier.size(diameter).clip(CircleShape).background(background).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -243,6 +248,7 @@ private fun MusicCard(s: Float, media: MediaState, actions: HomeActions, modifie
 @Composable
 private fun ProgressBlock(s: Float, media: MediaState) {
     var now by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
+
     LaunchedEffect(media.playing, media.stateTimeMs) {
         now = SystemClock.elapsedRealtime()
         if (media.playing) {
@@ -252,6 +258,7 @@ private fun ProgressBlock(s: Float, media: MediaState) {
             }
         }
     }
+
     val pos = media.positionAt(now)
     val fraction = if (media.durationMs > 0L) (pos.toFloat() / media.durationMs).coerceIn(0f, 1f) else 0f
 
