@@ -15,6 +15,8 @@ import kotlin.math.abs
 object LocationHelper {
     private const val PREFS = "launcher"
     private const val KEY_ODOMETER_METERS = "odometer_meters"
+    private const val MAX_LOCATION_ACCURACY_METERS = 15f
+    private const val MAX_JUMP_METERS = 50f
 
     /** La ubicación guardada más reciente (red, GPS o pasiva). null si no hay ninguna. */
     fun lastKnown(context: Context): Location? {
@@ -61,7 +63,7 @@ object LocationHelper {
             .apply()
     }
 
-    fun startOdometerTracking(context: Context, onUpdate: (Float) -> Unit): LocationListener? {
+    fun startOdometerTracking(context: Context, onUpdate: (Float, Float) -> Unit): LocationListener? {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
 
         val provider = when {
@@ -73,21 +75,32 @@ object LocationHelper {
         var lastLocation: Location? = lastKnown(context)
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                if (!location.hasAccuracy() || location.accuracy > MAX_LOCATION_ACCURACY_METERS) {
+                    return
+                }
+
+                val speedKmh = if (location.hasSpeed()) location.speed * 3.6f else 0f
                 val previous = lastLocation
                 if (previous != null && location.time >= previous.time) {
                     val deltaMeters = previous.distanceTo(location)
+                    if (deltaMeters > MAX_JUMP_METERS) {
+                        return
+                    }
                     if (deltaMeters > 0f && deltaMeters < 10_000f) {
                         val totalMeters = readOdometerMeters(context) + deltaMeters
                         saveOdometerMeters(context, totalMeters)
-                        onUpdate(totalMeters)
+                        onUpdate(totalMeters, speedKmh)
                     }
                 }
                 lastLocation = location
+                if (previous == null) {
+                    onUpdate(readOdometerMeters(context), speedKmh)
+                }
             }
         }
 
         try {
-            lm.requestLocationUpdates(provider, 3_000L, 5f, listener, Looper.getMainLooper())
+            lm.requestLocationUpdates(provider, 1_000L, 1f, listener, Looper.getMainLooper())
             return listener
         } catch (e: Exception) {
             return null
