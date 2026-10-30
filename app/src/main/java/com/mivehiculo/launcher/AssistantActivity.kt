@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.AudioManager
+import android.media.MediaRecorder
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -27,6 +28,13 @@ import com.mivehiculo.launcher.data.Shortcuts
 import com.mivehiculo.launcher.ui.AssistantScreen
 import com.mivehiculo.launcher.ui.ThemeController
 import com.mivehiculo.launcher.ui.VoiceState
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONObject
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -34,7 +42,7 @@ import java.util.concurrent.RejectedExecutionException
 
 /**
  * Jarvis: presionar para hablar (sin escucha continua).
- * Voz -> texto (SpeechRecognizer) -> comando local o IA -> texto -> voz (TextToSpeech).
+ * Voz -> audio (MediaRecorder) -> Whisper (Groq) -> texto -> comando local o IA -> texto -> voz (TextToSpeech).
  * Al salir de la pantalla se libera todo: micrófono, voz sintética y red.
  */
 class AssistantActivity : ComponentActivity() {
@@ -47,9 +55,12 @@ class AssistantActivity : ComponentActivity() {
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var recorder: MediaRecorder? = null
+    private var recordingFile: File? = null
 
     private val io: ExecutorService = Executors.newSingleThreadExecutor()
     private var requestId = 0
+    private val httpClient = OkHttpClient()
 
     private val audio by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     private val focusListener = AudioManager.OnAudioFocusChangeListener { }
@@ -102,6 +113,18 @@ class AssistantActivity : ComponentActivity() {
         }
         recognizer = null
         try {
+            recorder?.stop()
+        } catch (e: Exception) {
+            // ya estaba parado/liberado
+        }
+        try {
+            recorder?.release()
+        } catch (e: Exception) {
+            // ya estaba liberado
+        }
+        recorder = null
+        recordingFile = null
+        try {
             tts?.shutdown()
         } catch (e: Exception) {
             // ya estaba liberado
@@ -116,17 +139,13 @@ class AssistantActivity : ComponentActivity() {
     private fun onMicPressed() {
         when (state) {
             VoiceState.Idle -> startListening()
-            VoiceState.Listening -> try {
-                recognizer?.stopListening() // termina de grabar y procesa lo dicho
-            } catch (e: Exception) {
-                stopAll()
-            }
-            VoiceState.Thinking -> stopAll() // cancela la consulta
-            VoiceState.Speaking -> stopAll() // calla a Jarvis
+            VoiceState.Listening -> stopListening()
+            VoiceState.Thinking -> stopAll()
+            VoiceState.Speaking -> stopAll()
         }
     }
 
-    /* ---------- Voz a texto ---------- */
+    /* ---------- Voz a texto con Groq Whisper ---------- */
 
     private fun startListening() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -137,102 +156,118 @@ class AssistantActivity : ComponentActivity() {
             }
             return
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            fail("Este radio no tiene reconocimiento de voz. Instala o activa la app «Google» (servicios de voz).")
-            return
-        }
-        val r = recognizer ?: createRecognizer()
-        if (r == null) {
-            fail("No pude iniciar el reconocimiento de voz.")
-            return
-        }
+
         heard = ""
         reply = ""
         level = 0f
-        requestFocus() // pausa la música mientras hablas
+        requestFocus()
         state = VoiceState.Listening
+
+        val file = File(cacheDir, "jarvis_${System.currentTimeMillis()}.m4a")
+        recordingFile = file
+
         try {
-            r.startListening(
-                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Config.IDIOMA_VOZ)
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-                }
-            )
+            val mediaRecorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(128_000)
+                setAudioSamplingRate(44_100)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+            recorder = mediaRecorder
         } catch (e: Exception) {
-            fail("No pude usar el micrófono.")
+            recordingFile = null
+            fail("No pude usar el micrófono para grabar audio.")
         }
     }
 
-    private fun createRecognizer(): SpeechRecognizer? = try {
-        SpeechRecognizer.createSpeechRecognizer(this).also {
-            it.setRecognitionListener(listener)
-            recognizer = it
-        }
-    } catch (e: Exception) {
-        null
-    }
+    private fun stopListening() {
+        val activeRecorder = recorder
+        val audioFile = recordingFile
+        recorder = null
+        recordingFile = null
 
-    private val listener = object : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) {}
-        override fun onBeginningOfSpeech() {}
-        override fun onBufferReceived(buffer: ByteArray?) {}
-        override fun onEvent(eventType: Int, params: Bundle?) {}
-
-        /** Volumen de la voz: mueve las ondas del botón (suavizado). */
-        override fun onRmsChanged(rmsdB: Float) {
-            level = level * 0.6f + ((rmsdB + 2f) / 12f).coerceIn(0f, 1f) * 0.4f
-        }
-
-        override fun onEndOfSpeech() {
-            if (state == VoiceState.Listening) state = VoiceState.Thinking
-        }
-
-        override fun onPartialResults(partialResults: Bundle?) {
-            val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-            if (!text.isNullOrBlank()) heard = text
-        }
-
-        override fun onResults(results: Bundle?) {
-            level = 0f
-            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
-            if (text.isNullOrEmpty()) onSttError(SpeechRecognizer.ERROR_NO_MATCH) else handleHeard(text)
-        }
-
-        override fun onError(error: Int) {
-            onSttError(error)
-        }
-    }
-
-    private fun onSttError(code: Int) {
-        level = 0f
-        if (code == SpeechRecognizer.ERROR_CLIENT) { // ocurre al cancelar nosotros mismos
-            state = VoiceState.Idle
-            abandonFocus()
-            return
-        }
-        if (code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+        if (activeRecorder != null) {
             try {
-                recognizer?.destroy()
-            } catch (e: Exception) {
+                activeRecorder.stop()
+            } catch (_: Exception) {
+                // si se cancela o falla, seguimos intentando transcribir el archivo si existe
+            }
+            try {
+                activeRecorder.release()
+            } catch (_: Exception) {
                 // nada
             }
-            recognizer = null // la próxima vez se crea uno nuevo
         }
-        fail(
-            when (code) {
-                SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                    "No te escuché bien. Toca el micrófono e inténtalo de nuevo."
-                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                    "No hay internet para reconocer la voz."
-                SpeechRecognizer.ERROR_AUDIO -> "No pude usar el micrófono del radio."
-                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Falta el permiso del micrófono."
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "El reconocedor estaba ocupado. Inténtalo otra vez."
-                else -> "No pude reconocer la voz (código $code)."
+
+        if (audioFile == null || !audioFile.exists()) {
+            fail("No pude grabar el audio.")
+            return
+        }
+
+        state = VoiceState.Thinking
+        io.execute {
+            transcribeAudio(audioFile)
+        }
+    }
+
+    private fun transcribeAudio(file: File) {
+        if (BuildConfig.GROQ_API_KEY.isBlank()) {
+            runOnUiThread { fail("Falta la clave de la API de Jarvis (ver README: GROQ_API_KEY).") }
+            file.delete()
+            return
+        }
+
+        val requestBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "file",
+                file.name,
+                file.asRequestBody("audio/mp4".toMediaType()),
+            )
+            .addFormDataPart("model", "whisper-large-v3")
+            .build()
+
+        val request = Request.Builder()
+            .url("https://api.groq.com/openai/v1/audio/transcriptions")
+            .addHeader("Authorization", "Bearer ${BuildConfig.GROQ_API_KEY}")
+            .post(requestBody)
+            .build()
+
+        try {
+            val response = httpClient.newCall(request).execute()
+            val raw = response.body?.string().orEmpty()
+
+            if (!response.isSuccessful) {
+                val message = when (response.code) {
+                    401, 403 -> "La clave de la API no es válida."
+                    429 -> "Estoy saturado, intenta de nuevo en un momento."
+                    else -> "No pude transcribir el audio (código ${response.code})."
+                }
+                runOnUiThread { fail(message) }
+                file.delete()
+                return
             }
-        )
+
+            val text = JSONObject(raw).optString("text", "").trim()
+            if (text.isBlank()) {
+                runOnUiThread { fail("No te escuché bien. Inténtalo otra vez.") }
+                file.delete()
+                return
+            }
+
+            runOnUiThread {
+                heard = text
+                handleHeard(text)
+            }
+        } catch (e: Exception) {
+            runOnUiThread { fail("No pude transcribir tu voz con Groq.") }
+        } finally {
+            file.delete()
+        }
     }
 
     /* ---------- Qué hacer con lo que dijiste ---------- */
@@ -342,11 +377,20 @@ class AssistantActivity : ComponentActivity() {
 
     private fun stopAll() {
         requestId++ // ignora cualquier respuesta de IA que llegue tarde
+        val activeRecorder = recorder
+        recorder = null
         try {
-            recognizer?.cancel()
+            activeRecorder?.stop()
         } catch (e: Exception) {
             // nada
         }
+        try {
+            activeRecorder?.release()
+        } catch (e: Exception) {
+            // nada
+        }
+        recordingFile?.delete()
+        recordingFile = null
         try {
             tts?.stop()
         } catch (e: Exception) {
