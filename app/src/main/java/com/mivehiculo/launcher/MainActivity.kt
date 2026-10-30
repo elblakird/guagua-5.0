@@ -1,6 +1,10 @@
 package com.mivehiculo.launcher
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
@@ -31,12 +35,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Creamos las acciones reales conectadas a Android
             val actions = HomeActions(
-                openRadio = {}, openMusic = {}, openPhone = {}, openApps = {},
-                openAndroidAuto = {}, openNavigation = {}, openSettings = {},
-                mediaPrev = {}, mediaPlayPause = {}, mediaNext = {},
-                openNotificationAccess = {}, openMaintenance = {},
-                openRearCamera = {}, pickRearCamera = {}, pickRadio = {}, openAssistant = {}
+                openRadio = { toast("Abriendo Radio (pendiente)") },
+                openMusic = { openAppByPackage("com.android.music") },
+                openPhone = { openAppByPackage("com.android.dialer") },
+                openApps = { 
+                    val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_APP_CALCULATOR) }
+                    try { startActivity(intent) } catch(e: Exception) { toast("Sin App Drawer") }
+                },
+                openAndroidAuto = { toast("Abriendo Android Auto (pendiente)") },
+                openNavigation = { openAppByPackage("com.google.android.apps.maps") },
+                openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
+                mediaPrev = { toast("Anterior") },
+                mediaPlayPause = { toast("Play/Pausa") },
+                mediaNext = { toast("Siguiente") },
+                openNotificationAccess = { toast("Permiso de Notificaciones") },
+                openMaintenance = { toast("Abriendo Mantenimiento") },
+                openRearCamera = { toast("Abriendo Cámara") },
+                pickRearCamera = { toast("Seleccionar Cámara") },
+                pickRadio = { toast("Seleccionar Radio") },
+                openAssistant = { 
+                    try { startActivity(Intent(this@MainActivity, AssistantActivity::class.java)) } 
+                    catch(e: Exception) { toast("Jarvis no instalado") }
+                }
             )
 
             HomeScreen(
@@ -49,5 +71,20 @@ class MainActivity : ComponentActivity() {
                 actions = actions
             )
         }
+    }
+
+    // Función para abrir apps buscando su paquete
+    private fun openAppByPackage(packageName: String) {
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        if (intent != null) {
+            startActivity(intent)
+        } else {
+            toast("App no encontrada en esta radio")
+        }
+    }
+
+    // Función auxiliar para los Toasts
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }
