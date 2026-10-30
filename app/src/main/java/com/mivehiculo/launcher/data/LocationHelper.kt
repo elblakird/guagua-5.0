@@ -13,6 +13,8 @@ import kotlin.math.abs
  * muchos radios chinos NO tienen Google Play Services, y así no se añade ninguna librería.
  */
 object LocationHelper {
+    private const val PREFS = "launcher"
+    private const val KEY_ODOMETER_METERS = "odometer_meters"
 
     /** La ubicación guardada más reciente (red, GPS o pasiva). null si no hay ninguna. */
     fun lastKnown(context: Context): Location? {
@@ -47,6 +49,60 @@ object LocationHelper {
             return
         }
         OneShot(lm, onResult).start(provider, timeoutMs)
+    }
+
+    fun readOdometerMeters(context: Context): Float =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat(KEY_ODOMETER_METERS, 0f)
+
+    fun saveOdometerMeters(context: Context, meters: Float) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putFloat(KEY_ODOMETER_METERS, meters)
+            .apply()
+    }
+
+    fun startOdometerTracking(context: Context, onUpdate: (Float) -> Unit): LocationListener? {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+
+        val provider = when {
+            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
+            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
+            else -> null
+        } ?: return null
+
+        var lastLocation: Location? = lastKnown(context)
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                val previous = lastLocation
+                if (previous != null && location.time >= previous.time) {
+                    val deltaMeters = previous.distanceTo(location)
+                    if (deltaMeters > 0f && deltaMeters < 10_000f) {
+                        val totalMeters = readOdometerMeters(context) + deltaMeters
+                        saveOdometerMeters(context, totalMeters)
+                        onUpdate(totalMeters)
+                    }
+                }
+                lastLocation = location
+            }
+        }
+
+        try {
+            lm.requestLocationUpdates(provider, 3_000L, 5f, listener, Looper.getMainLooper())
+            return listener
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    fun stopOdometerTracking(context: Context, listener: LocationListener?) {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
+        if (listener != null) {
+            try {
+                lm.removeUpdates(listener)
+            } catch (_: Exception) {
+                // no-op
+            }
+        }
     }
 
     private class OneShot(
