@@ -6,12 +6,20 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import kotlin.math.abs
 
-/**
- * Usa el LocationManager del propio Android. Se eligió en vez de FusedLocationProviderClient porque
- * muchos radios chinos NO tienen Google Play Services, y así no se añade ninguna librería.
- */
+private fun Context.toast(message: String, duration: Int = Toast.LENGTH_SHORT) {
+    Toast.makeText(this, message, duration).show()
+}
+
+class MainActivity {
+    companion object {
+        private const val PREFS = "launcher"
+        private const val KEY_ODOMETER_METERS = "odometer_meters"
+        private const val MAX_LOCATION_ACCURACY_METERS = 15f
+        private const val MAX_JUMP_METERS = 50f
+    }
 
     /** Antigüedad de una ubicación, en milisegundos. */
     fun ageMs(loc: Location): Long = abs(System.currentTimeMillis() - loc.time)
@@ -52,7 +60,7 @@ import kotlin.math.abs
             else -> null
         } ?: return null
 
-        var lastLocation: Location? = lastKnown(context)
+        var lastLocation: Location? = LocationHelper.lastKnown(context)
 
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
