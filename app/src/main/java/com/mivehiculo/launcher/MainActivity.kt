@@ -10,13 +10,12 @@ import android.os.Looper
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.*
-import com.mivehiculo.launcher.data.MediaState
-import com.mivehiculo.launcher.ui.HomeActions
-import com.mivehiculo.launcher.ui.HomeScreen
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
@@ -24,65 +23,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Iniciar la barra flotante de volumen
-        startService(android.content.Intent(this, VolumeOverlayService::class.java))
+        try {
+            startService(android.content.Intent(this, VolumeOverlayService::class.java))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-        // 2. Dibujar la pantalla principal
-        <service android:name=".VolumeOverlayService" android:enabled="true" android:exported="false" />
-
-            // Esto actualiza el reloj cada minuto
-            LaunchedEffect(Unit) {
-                while (true) {
-                    currentTime = timeFormat.format(Date())
-                    currentDate = dateFormat.format(Date())
-                    kotlinx.coroutines.delay(60000L)
-                }
+        setContent {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "¡La app funciona! Vamos por el diseño.", color = Color.Red)
             }
-
-            // Creamos las acciones (los botones). Por ahora muestran un Toast para probar.
-            val actions = HomeActions(
-                openRadio = { toast("Abriendo Radio") },
-                openMusic = { toast("Abriendo Música") },
-                openPhone = { toast("Abriendo Teléfono") },
-                openApps = { toast("Abriendo Apps") },
-                openAndroidAuto = { toast("Abriendo Android Auto") },
-                openNavigation = { toast("Abriendo Navegación") },
-                openSettings = { toast("Abriendo Ajustes") },
-                mediaPrev = { toast("Anterior") },
-                mediaPlayPause = { toast("Play/Pausa") },
-                mediaNext = { toast("Siguiente") },
-                openNotificationAccess = { toast("Permiso de Notificaciones") },
-                openMaintenance = { toast("Mantenimiento") },
-                openRearCamera = { toast("Cámara Trasera") },
-                pickRearCamera = { toast("Seleccionar Cámara") },
-                pickRadio = { toast("Seleccionar Radio") },
-                openAssistant = { toast("Abriendo Jarvis") }
-            )
-
-            // Llamamos a tu pantalla con datos de prueba
-            HomeScreen(
-                time = currentTime,
-                date = currentDate,
-                weather = "24°C",
-                feels = "Despejado",
-                media = MediaState(), // Estado vacío de música para que no falle
-                odometerKm = "0", 
-                actions = actions
-            )
         }
     }
 
-    // Función auxiliar para los Toasts
-    fun Context.toast(message: String, duration: Int = Toast.LENGTH_SHORT) {
-        Toast.makeText(this, message, duration).show()
-    }
-
-    // --- AQUI EMPIEZA TU LÓGICA DE GPS ORIGINAL ---
     companion object {
         private const val PREFS = "launcher"
         private const val KEY_ODOMETER_METERS = "odometer_meters"
         private const val MAX_LOCATION_ACCURACY_METERS = 15f
         private const val MAX_JUMP_METERS = 50f
+    }
+
+    private fun Context.toast(message: String, duration: Int = Toast.LENGTH_SHORT) {
+        Toast.makeText(this, message, duration).show()
     }
 
     private fun ageMs(loc: Location): Long = abs(System.currentTimeMillis() - loc.time)
