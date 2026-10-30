@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         try {
-            startService(android.content.Intent(this, VolumeOverlayService::class.java))
+           // startService(android.content.Intent(this, VolumeOverlayService::class.java))
         } catch (e: Exception) {
             e.printStackTrace()
         }
