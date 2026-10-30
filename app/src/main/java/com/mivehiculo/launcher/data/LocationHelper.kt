@@ -19,6 +19,8 @@ object LocationHelper {
     // Filtros para descartar lecturas de GPS poco fiables
     private const val MAX_LOCATION_ACCURACY_METERS = 15f
     private const val MAX_JUMP_METERS = 50f
+    private const val MIN_SPEED_KMH_FOR_MOVEMENT = 2f
+    private const val MAX_REASONABLE_SPEED_KMH = 200f
 
     /** La ubicación guardada más reciente (red, GPS o pasiva). null si no hay ninguna. */
     fun lastKnown(context: Context): Location? {
@@ -85,16 +87,28 @@ object LocationHelper {
 
                 val speedKmh = if (location.hasSpeed()) location.speed * 3.6f else 0f
 
+                // 2) Evitar lecturas de "flotación" del GPS cuando el vehículo está detenido
+                if (location.hasSpeed() && speedKmh < MIN_SPEED_KMH_FOR_MOVEMENT) {
+                    lastLocation = location
+                    return
+                }
+
+                // 3) Filtrar velocidades imposibles o claramente erróneas
+                if (location.hasSpeed() && speedKmh > MAX_REASONABLE_SPEED_KMH) {
+                    lastLocation = location
+                    return
+                }
+
                 val previous = lastLocation
                 if (previous != null && location.time >= previous.time) {
-                    // 2) Ignorar salto de señal / pérdida de GPS
+                    // 4) Ignorar salto de señal / pérdida de GPS
                     val deltaMeters = previous.distanceTo(location)
                     if (deltaMeters > MAX_JUMP_METERS) {
                         lastLocation = location
                         return
                     }
 
-                    // 3) Sumar solo distancias razonables
+                    // 5) Sumar solo distancias razonables
                     if (deltaMeters > 0f && deltaMeters < 10_000f) {
                         val totalMeters = readOdometerMeters(context) + deltaMeters
                         saveOdometerMeters(context, totalMeters)
@@ -110,7 +124,7 @@ object LocationHelper {
         }
 
         try {
-            // 4) Actualización cada 1 segundo o cada 1 metro
+            // 6) Actualización cada 1 segundo o cada 1 metro
             lm.requestLocationUpdates(provider, 1_000L, 1f, listener, Looper.getMainLooper())
             return listener
         } catch (e: Exception) {
