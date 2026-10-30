@@ -108,8 +108,14 @@ object LocationHelper {
                         return
                     }
 
-                    // 5) Sumar solo distancias razonables
-                    if (deltaMeters > 0f && deltaMeters < 10_000f) {
+                    // 5) Evitar sumar distancias nulas o absurdamente pequeñas cuando hay ruido del GPS
+                    if (deltaMeters <= 0f) {
+                        lastLocation = location
+                        return
+                    }
+
+                    // 6) Sumar solo distancias razonables
+                    if (deltaMeters < 10_000f) {
                         val totalMeters = readOdometerMeters(context) + deltaMeters
                         saveOdometerMeters(context, totalMeters)
                         onUpdate(totalMeters, speedKmh)
@@ -124,7 +130,7 @@ object LocationHelper {
         }
 
         try {
-            // 6) Actualización cada 1 segundo o cada 1 metro
+            // 7) Actualización cada 1 segundo o cada 1 metro
             lm.requestLocationUpdates(provider, 1_000L, 1f, listener, Looper.getMainLooper())
             return listener
         } catch (e: Exception) {
