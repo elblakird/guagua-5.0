@@ -1,4 +1,4 @@
-package com.mivehiculo.launcher.data
+package com.mivehiculo.launcher
 
 import android.content.Context
 import android.location.Location
