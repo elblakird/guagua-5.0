@@ -78,7 +78,7 @@ object LocationHelper {
 
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                // 1) Ignorar lecturas con precisión pobre
+                // 1) Ignorar lecturas con precisión mala
                 if (!location.hasAccuracy() || location.accuracy > MAX_LOCATION_ACCURACY_METERS) {
                     return
                 }
