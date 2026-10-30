@@ -13,6 +13,7 @@ import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -45,7 +46,7 @@ class VolumeOverlayService : Service() {
     private val hideRunnable = Runnable { hideOverlay() }
 
     private val volumeObserver = object : ContentObserver(mainHandler) {
-        override fun onChange(selfChange: Boolean) {
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
             updateVolume()
             showOverlay()
         }
@@ -145,10 +146,12 @@ class VolumeOverlayService : Service() {
 
     private fun updateVolume() {
         if (!this::overlayContainer.isInitialized) return
+        if (!this::audioManager.isInitialized) return
 
         val maxVolume = max(1, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
         val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         val progress = currentVolume.toFloat() / maxVolume.toFloat()
+
         volumeBarView.setProgress(progress)
     }
 
@@ -181,8 +184,8 @@ class VolumeOverlayService : Service() {
 
     private fun registerVolumeObserver() {
         try {
-            val uri = Settings.System.getUriFor("volume_music")
-            contentResolver.registerContentObserver(uri, false, volumeObserver)
+            val volumeUri = Settings.System.getUriFor("volume_music")
+            contentResolver.registerContentObserver(volumeUri, false, volumeObserver)
         } catch (_: Exception) {
             contentResolver.registerContentObserver(Settings.System.CONTENT_URI, true, volumeObserver)
         }
