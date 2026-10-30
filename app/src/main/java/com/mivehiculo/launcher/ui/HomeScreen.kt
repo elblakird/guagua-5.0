@@ -76,10 +76,10 @@ fun HomeScreen(
     weather: String,
     feels: String,
     media: MediaState,
+    odometerKm: String,
     actions: HomeActions,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().screenBackground()) {
-        // Escala: todo se dimensiona respecto a una pantalla de 600 dp de alto.
         val s = (maxHeight.value / 600f).coerceIn(0.6f, 2.5f)
 
         Column(Modifier.fillMaxSize()) {
@@ -96,7 +96,7 @@ fun HomeScreen(
                     MusicCard(s, media, actions, Modifier.weight(1f).fillMaxWidth())
                     AutoCard(s, actions.openAndroidAuto, Modifier.fillMaxWidth().height((96 * s).dp))
                 }
-                VehicleCard(s, actions.openMaintenance, Modifier.weight(1f).fillMaxHeight())
+                VehicleCard(s, actions.openMaintenance, odometerKm, Modifier.weight(1f).fillMaxHeight())
                 MapCard(s, weather, feels, actions.openNavigation, Modifier.weight(1.15f).fillMaxHeight())
             }
 
@@ -105,8 +105,6 @@ fun HomeScreen(
         }
     }
 }
-
-/* ---------- Barra superior ---------- */
 
 @Composable
 private fun TopBar(s: Float, time: String, date: String) {
@@ -138,8 +136,6 @@ private fun TopBar(s: Float, time: String, date: String) {
         }
     }
 }
-
-/* ---------- Tarjetas ---------- */
 
 @Composable
 private fun FloatingCard(
@@ -178,7 +174,6 @@ private fun MusicCard(s: Float, media: MediaState, actions: HomeActions, modifie
         else -> "Abre tu app de música"
     }
 
-    // Sin permiso, tocar la tarjeta abre la pantalla de "Acceso a notificaciones".
     FloatingCard(s, modifier, if (media.hasAccess) null else actions.openNotificationAccess) {
         Column(
             Modifier.fillMaxSize().padding((20 * s).dp),
@@ -245,10 +240,6 @@ private fun MusicCard(s: Float, media: MediaState, actions: HomeActions, modifie
     }
 }
 
-/**
- * Barra y tiempos. Su reloj interno (1 vez por segundo) solo corre mientras suena música y
- * solo redibuja este bloque, no toda la pantalla.
- */
 @Composable
 private fun ProgressBlock(s: Float, media: MediaState) {
     var now by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
@@ -324,7 +315,7 @@ private fun AutoCard(s: Float, onClick: () -> Unit, modifier: Modifier) {
 }
 
 @Composable
-private fun VehicleCard(s: Float, onClick: () -> Unit, modifier: Modifier) {
+private fun VehicleCard(s: Float, onClick: () -> Unit, odometerKm: String, modifier: Modifier) {
     FloatingCard(s, modifier, onClick) {
         Column(
             Modifier.fillMaxSize().padding((22 * s).dp),
@@ -339,7 +330,6 @@ private fun VehicleCard(s: Float, onClick: () -> Unit, modifier: Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height((4 * s).dp))
-            // Foto del Santa Fe (PNG transparente, res/drawable-nodpi). Fit = nunca se deforma ni se recorta.
             Image(
                 bitmap = ImageBitmap.imageResource(R.drawable.santa_fe),
                 contentDescription = Config.VEHICULO,
@@ -355,7 +345,7 @@ private fun VehicleCard(s: Float, onClick: () -> Unit, modifier: Modifier) {
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(Mock.SPEED, color = Palette.Accent, fontSize = (72 * s).sp, fontWeight = FontWeight.Medium)
+                        Text(odometerKm, color = Palette.Accent, fontSize = (72 * s).sp, fontWeight = FontWeight.Medium)
                         Text(
                             " km/h",
                             Modifier.padding(bottom = (14 * s).dp),
@@ -379,7 +369,6 @@ private fun MapCard(s: Float, weather: String, feels: String, onClick: () -> Uni
     FloatingCard(s, modifier, onClick) {
         MapIllustration(Modifier.fillMaxSize())
 
-        // Clima discreto, arriba a la derecha
         Box(
             Modifier
                 .align(Alignment.TopEnd)
@@ -396,7 +385,6 @@ private fun MapCard(s: Float, weather: String, feels: String, onClick: () -> Uni
             }
         }
 
-        // Etiqueta del mapa, abajo a la izquierda
         Row(
             Modifier
                 .align(Alignment.BottomStart)
@@ -412,8 +400,6 @@ private fun MapCard(s: Float, weather: String, feels: String, onClick: () -> Uni
         }
     }
 }
-
-/* ---------- Dock inferior ---------- */
 
 @Composable
 private fun Dock(s: Float, actions: HomeActions) {
