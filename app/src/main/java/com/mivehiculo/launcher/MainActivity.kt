@@ -12,28 +12,6 @@ import kotlin.math.abs
  * Usa el LocationManager del propio Android. Se eligió en vez de FusedLocationProviderClient porque
  * muchos radios chinos NO tienen Google Play Services, y así no se añade ninguna librería.
  */
-object LocationHelper {
-    private const val PREFS = "launcher"
-    private const val KEY_ODOMETER_METERS = "odometer_meters"
-
-    // Filtros para descartar lecturas de GPS poco fiables
-    private const val MAX_LOCATION_ACCURACY_METERS = 15f
-    private const val MAX_JUMP_METERS = 50f
-
-    /** La ubicación guardada más reciente (red, GPS o pasiva). null si no hay ninguna. */
-    fun lastKnown(context: Context): Location? {
-        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
-        var best: Location? = null
-        for (p in listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER)) {
-            val loc = try {
-                lm.getLastKnownLocation(p)
-            } catch (e: Exception) {
-                null
-            }
-            if (loc != null && (best == null || loc.time > best.time)) best = loc
-        }
-        return best
-    }
 
     /** Antigüedad de una ubicación, en milisegundos. */
     fun ageMs(loc: Location): Long = abs(System.currentTimeMillis() - loc.time)
