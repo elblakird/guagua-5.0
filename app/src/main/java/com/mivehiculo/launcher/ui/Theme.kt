@@ -71,7 +71,7 @@ object Palette {
 
     val IsDark: Boolean get() = dark
 
-    fun setDark(value: Boolean) {
+    fun setDarkMode(value: Boolean) {
         dark = value
     }
 
