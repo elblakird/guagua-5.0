@@ -64,7 +64,7 @@ object ThemeController {
      */
     fun sync(activity: Activity, force: Boolean = false) {
         val dark = resolveDark(activity)
-        Palette.setDark(dark)
+        Palette.setDarkMode(dark)
         if (force || dark != windowDark) {
             windowDark = dark
             applyWindow(activity, dark)
