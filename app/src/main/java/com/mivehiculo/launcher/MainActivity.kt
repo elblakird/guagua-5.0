@@ -14,6 +14,7 @@ import com.mivehiculo.launcher.ui.HomeScreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.mivehiculo.launcher.AssistantActivity
 
 class MainActivity : ComponentActivity() {
 
