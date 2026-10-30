@@ -43,9 +43,7 @@ class MainActivity : ComponentActivity() {
     private var time by mutableStateOf("")
     private var date by mutableStateOf("")
     private var weather by mutableStateOf<WeatherData?>(null)
-
     private var odometerMeters by mutableStateOf(0f)
-    private var currentSpeedKmh by mutableStateOf(0f)
     private var odometerListener: LocationListener? = null
 
     private var media by mutableStateOf(MediaState())
@@ -167,7 +165,6 @@ class MainActivity : ComponentActivity() {
                     w?.headline ?: "--°C",
                     w?.feelsLine ?: "",
                     media,
-                    formatSpeedKmh(currentSpeedKmh),
                     formatOdometerKm(odometerMeters),
                     actions,
                 )
@@ -222,9 +219,8 @@ class MainActivity : ComponentActivity() {
 
     private fun startOdometerTracking() {
         stopOdometerTracking()
-        odometerListener = LocationHelper.startOdometerTracking(this) { totalMeters, speedKmh ->
+        odometerListener = LocationHelper.startOdometerTracking(this) { totalMeters ->
             odometerMeters = totalMeters
-            currentSpeedKmh = speedKmh
         }
     }
 
@@ -240,58 +236,7 @@ class MainActivity : ComponentActivity() {
     private fun formatOdometerKm(meters: Float): String =
         String.format(Locale.US, "%,.0f", meters / 1000f)
 
-    private fun formatSpeedKmh(speedKmh: Float): String =
-        String.format(Locale.US, "%,.0f", speedKmh)
-
     private fun openRearCamera() {
         val saved = getSharedPreferences("launcher", MODE_PRIVATE).getString("camera_pkg", null)
-        if (!Apps.launchAny(this, Config.CAMARA + listOfNotNull(saved))) pickRearCamera()
-    }
-
-    private fun pickRearCamera() {
-        pickTarget = "camera_pkg"
-        toast("Toca la app de cámara trasera / AV-IN de tu radio")
-        showApps()
-    }
-
-    private fun openRadioApp() {
-        val saved = Apps.savedPackage(this, "radio_pkg")
-        if (!Apps.launchAny(this, listOfNotNull(saved) + Config.RADIO)) pickRadioApp()
-    }
-
-    private fun pickRadioApp() {
-        pickTarget = "radio_pkg"
-        toast("Toca la app de Radio FM de tu radio")
-        showApps()
-    }
-
-    private fun savePickedApp(key: String, pkg: String) {
-        try {
-            getSharedPreferences("launcher", MODE_PRIVATE).edit().putString(key, pkg).apply()
-        } catch (_: Exception) {
-            // No-op: if it cannot be saved, the user will be prompted again later.
-        }
-    }
-
-    private fun showApps() {
-        if (loadingApps) return
-        loadingApps = true
-        Thread {
-            val list = try {
-                Apps.installed(this)
-            } catch (_: Exception) {
-                emptyList()
-            }
-            runOnUiThread {
-                drawerApps = list
-                loadingApps = false
-            }
-        }.start()
-    }
-
-    private fun open(nombre: String, opened: Boolean) {
-        if (!opened) toast("$nombre: app no encontrada (ver Config.kt)")
-    }
-
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-}
+        if (!Apps.launchAny(this, Config.CAMARA +
+
