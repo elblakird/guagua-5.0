@@ -14,7 +14,6 @@
         android:icon="@drawable/ic_launcher"
         android:label="Mi Launcher"
         android:theme="@style/Theme.MiLauncher">
-        <service android:name=".VolumeOverlayService" />
 
         <activity
             android:name=".MainActivity"
