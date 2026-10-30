@@ -347,7 +347,7 @@ private fun VehicleCard(s: Float, onClick: () -> Unit, odometerKm: String, modif
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(odometerKm, color = Palette.Accent, fontSize = (72 * s).sp, fontWeight = FontWeight.Medium)
                         Text(
-                            " km/h",
+                            " km",
                             Modifier.padding(bottom = (14 * s).dp),
                             color = Palette.Muted,
                             fontSize = (20 * s).sp,
@@ -356,7 +356,7 @@ private fun VehicleCard(s: Float, onClick: () -> Unit, odometerKm: String, modif
                 }
                 Box(Modifier.width(1.dp).height((56 * s).dp).background(Palette.Track))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(Mock.ODOMETER, color = Palette.Text, fontSize = (34 * s).sp, fontWeight = FontWeight.Medium)
+                    Text(odometerKm, color = Palette.Text, fontSize = (34 * s).sp, fontWeight = FontWeight.Medium)
                     Text("km recorridos", color = Palette.Muted, fontSize = (16 * s).sp)
                 }
             }
