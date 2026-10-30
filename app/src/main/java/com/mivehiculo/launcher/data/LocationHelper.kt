@@ -15,6 +15,8 @@ import kotlin.math.abs
 object LocationHelper {
     private const val PREFS = "launcher"
     private const val KEY_ODOMETER_METERS = "odometer_meters"
+
+    // Filtros para descartar lecturas de GPS poco fiables
     private const val MAX_LOCATION_ACCURACY_METERS = 15f
     private const val MAX_JUMP_METERS = 50f
 
@@ -73,25 +75,33 @@ object LocationHelper {
         } ?: return null
 
         var lastLocation: Location? = lastKnown(context)
+
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                // 1) Ignorar lecturas con precisión pobre
                 if (!location.hasAccuracy() || location.accuracy > MAX_LOCATION_ACCURACY_METERS) {
                     return
                 }
 
                 val speedKmh = if (location.hasSpeed()) location.speed * 3.6f else 0f
+
                 val previous = lastLocation
                 if (previous != null && location.time >= previous.time) {
+                    // 2) Ignorar salto de señal / pérdida de GPS
                     val deltaMeters = previous.distanceTo(location)
                     if (deltaMeters > MAX_JUMP_METERS) {
+                        lastLocation = location
                         return
                     }
+
+                    // 3) Sumar solo distancias razonables
                     if (deltaMeters > 0f && deltaMeters < 10_000f) {
                         val totalMeters = readOdometerMeters(context) + deltaMeters
                         saveOdometerMeters(context, totalMeters)
                         onUpdate(totalMeters, speedKmh)
                     }
                 }
+
                 lastLocation = location
                 if (previous == null) {
                     onUpdate(readOdometerMeters(context), speedKmh)
@@ -100,6 +110,7 @@ object LocationHelper {
         }
 
         try {
+            // 4) Actualización cada 1 segundo o cada 1 metro
             lm.requestLocationUpdates(provider, 1_000L, 1f, listener, Looper.getMainLooper())
             return listener
         } catch (e: Exception) {
