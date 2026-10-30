@@ -419,3 +419,8 @@ class AssistantActivity : ComponentActivity() {
         }
     }
 }
+
+
+
+
+
