@@ -75,6 +75,7 @@ fun HomeScreen(
     weather: String,
     feels: String,
     media: MediaState,
+    speedKmh: String,
     odometerKm: String,
     actions: HomeActions,
 ) {
@@ -95,7 +96,7 @@ fun HomeScreen(
                     MusicCard(s, media, actions, Modifier.weight(1f).fillMaxWidth())
                     AutoCard(s, actions.openAndroidAuto, Modifier.fillMaxWidth().height((96 * s).dp))
                 }
-                VehicleCard(s, actions.openMaintenance, odometerKm, Modifier.weight(1f).fillMaxHeight())
+                VehicleCard(s, actions.openMaintenance, speedKmh, odometerKm, Modifier.weight(1f).fillMaxHeight())
                 MapCard(s, weather, feels, actions.openNavigation, Modifier.weight(1.15f).fillMaxHeight())
             }
 
@@ -322,7 +323,13 @@ private fun AutoCard(s: Float, onClick: () -> Unit, modifier: Modifier) {
 }
 
 @Composable
-private fun VehicleCard(s: Float, onClick: () -> Unit, odometerKm: String, modifier: Modifier) {
+private fun VehicleCard(
+    s: Float,
+    onClick: () -> Unit,
+    speedKmh: String,
+    odometerKm: String,
+    modifier: Modifier,
+) {
     FloatingCard(s, modifier, onClick) {
         Column(
             Modifier.fillMaxSize().padding((22 * s).dp),
@@ -352,9 +359,9 @@ private fun VehicleCard(s: Float, onClick: () -> Unit, odometerKm: String, modif
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(odometerKm, color = Palette.Accent, fontSize = (72 * s).sp, fontWeight = FontWeight.Medium)
+                        Text(speedKmh, color = Palette.Accent, fontSize = (72 * s).sp, fontWeight = FontWeight.Medium)
                         Text(
-                            " km",
+                            " km/h",
                             Modifier.padding(bottom = (14 * s).dp),
                             color = Palette.Muted,
                             fontSize = (20 * s).sp,
