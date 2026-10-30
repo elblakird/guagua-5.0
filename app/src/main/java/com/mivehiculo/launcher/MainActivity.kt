@@ -28,12 +28,7 @@ class MainActivity : ComponentActivity() {
         startService(android.content.Intent(this, VolumeOverlayService::class.java))
 
         // 2. Dibujar la pantalla principal
-        setContent {
-            // Variables de tiempo reales
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            val dateFormat = SimpleDateFormat("EEEE, d 'de' MMMM", Locale.getDefault())
-            var currentTime by remember { mutableStateOf(timeFormat.format(Date())) }
-            var currentDate by remember { mutableStateOf(dateFormat.format(Date())) }
+        <service android:name=".VolumeOverlayService" android:enabled="true" android:exported="false" />
 
             // Esto actualiza el reloj cada minuto
             LaunchedEffect(Unit) {
