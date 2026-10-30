@@ -60,10 +60,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-
-        <service
-            android:name=".VolumeOverlayService"
-            android:enabled="true"
-            android:exported="false" />
+       <service android:name=".VolumeOverlayService" android:enabled="true" android:exported="false" />
     </application>
 </manifest>
