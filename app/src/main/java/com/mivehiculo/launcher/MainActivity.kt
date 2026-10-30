@@ -1,19 +1,88 @@
-package com.mivehiculo.launcher.data
+package com.mivehiculo.launcher
 
 import android.content.Context
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.*
+import com.mivehiculo.launcher.data.MediaState
+import com.mivehiculo.launcher.ui.HomeActions
+import com.mivehiculo.launcher.ui.HomeScreen
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 
-private fun Context.toast(message: String, duration: Int = Toast.LENGTH_SHORT) {
-    Toast.makeText(this, message, duration).show()
-}
+class MainActivity : ComponentActivity() {
 
-class MainActivity {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // 1. Iniciar la barra flotante de volumen
+        startService(android.content.Intent(this, VolumeOverlayService::class.java))
+
+        // 2. Dibujar la pantalla principal
+        setContent {
+            // Variables de tiempo reales
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val dateFormat = SimpleDateFormat("EEEE, d 'de' MMMM", Locale.getDefault())
+            var currentTime by remember { mutableStateOf(timeFormat.format(Date())) }
+            var currentDate by remember { mutableStateOf(dateFormat.format(Date())) }
+
+            // Esto actualiza el reloj cada minuto
+            LaunchedEffect(Unit) {
+                while (true) {
+                    currentTime = timeFormat.format(Date())
+                    currentDate = dateFormat.format(Date())
+                    kotlinx.coroutines.delay(60000L)
+                }
+            }
+
+            // Creamos las acciones (los botones). Por ahora muestran un Toast para probar.
+            val actions = HomeActions(
+                openRadio = { toast("Abriendo Radio") },
+                openMusic = { toast("Abriendo Música") },
+                openPhone = { toast("Abriendo Teléfono") },
+                openApps = { toast("Abriendo Apps") },
+                openAndroidAuto = { toast("Abriendo Android Auto") },
+                openNavigation = { toast("Abriendo Navegación") },
+                openSettings = { toast("Abriendo Ajustes") },
+                mediaPrev = { toast("Anterior") },
+                mediaPlayPause = { toast("Play/Pausa") },
+                mediaNext = { toast("Siguiente") },
+                openNotificationAccess = { toast("Permiso de Notificaciones") },
+                openMaintenance = { toast("Mantenimiento") },
+                openRearCamera = { toast("Cámara Trasera") },
+                pickRearCamera = { toast("Seleccionar Cámara") },
+                pickRadio = { toast("Seleccionar Radio") },
+                openAssistant = { toast("Abriendo Jarvis") }
+            )
+
+            // Llamamos a tu pantalla con datos de prueba
+            HomeScreen(
+                time = currentTime,
+                date = currentDate,
+                weather = "24°C",
+                feels = "Despejado",
+                media = MediaState(), // Estado vacío de música para que no falle
+                odometerKm = "0", 
+                actions = actions
+            )
+        }
+    }
+
+    // Función auxiliar para los Toasts
+    fun Context.toast(message: String, duration: Int = Toast.LENGTH_SHORT) {
+        Toast.makeText(this, message, duration).show()
+    }
+
+    // --- AQUI EMPIEZA TU LÓGICA DE GPS ORIGINAL ---
     companion object {
         private const val PREFS = "launcher"
         private const val KEY_ODOMETER_METERS = "odometer_meters"
@@ -21,128 +90,27 @@ class MainActivity {
         private const val MAX_JUMP_METERS = 50f
     }
 
-    /** Antigüedad de una ubicación, en milisegundos. */
-    fun ageMs(loc: Location): Long = abs(System.currentTimeMillis() - loc.time)
+    private fun ageMs(loc: Location): Long = abs(System.currentTimeMillis() - loc.time)
 
-    /** Pide UNA sola ubicación. Si no llega en [timeoutMs], devuelve null (nunca se queda esperando). */
     fun requestOnce(context: Context, timeoutMs: Long = 20_000L, onResult: (Location?) -> Unit) {
-        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-        val provider = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER).firstOrNull {
-            try {
-                lm?.isProviderEnabled(it) == true
-            } catch (e: Exception) {
-                false
-            }
-        }
-        if (lm == null || provider == null) {
-            onResult(null)
-            return
-        }
-        OneShot(lm, onResult).start(provider, timeoutMs)
-    }
-
-    fun readOdometerMeters(context: Context): Float =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat(KEY_ODOMETER_METERS, 0f)
-
-    fun saveOdometerMeters(context: Context, meters: Float) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putFloat(KEY_ODOMETER_METERS, meters)
-            .apply()
-    }
-
-    fun startOdometerTracking(context: Context, onUpdate: (Float, Float) -> Unit): LocationListener? {
-        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
-
-        val provider = when {
-            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
-            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
-            else -> null
-        } ?: return null
-
-        var lastLocation: Location? = LocationHelper.lastKnown(context)
-
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                // 1) Ignorar lecturas con precisión mala
-                if (!location.hasAccuracy() || location.accuracy > MAX_LOCATION_ACCURACY_METERS) {
-                    return
-                }
-
-                val speedKmh = if (location.hasSpeed()) location.speed * 3.6f else 0f
-
-                val previous = lastLocation
-                if (previous != null && location.time >= previous.time) {
-                    // 2) Ignorar salto de señal / pérdida de GPS
-                    val deltaMeters = previous.distanceTo(location)
-                    if (deltaMeters > MAX_JUMP_METERS) {
-                        lastLocation = location
-                        return
-                    }
-
-                    // 3) Sumar solo distancias razonables
-                    if (deltaMeters > 0f && deltaMeters < 10_000f) {
-                        val totalMeters = readOdometerMeters(context) + deltaMeters
-                        saveOdometerMeters(context, totalMeters)
-                        onUpdate(totalMeters, speedKmh)
-                    }
-                }
-
-                lastLocation = location
-                if (previous == null) {
-                    onUpdate(readOdometerMeters(context), speedKmh)
-                }
-            }
-        }
-
-        try {
-            // 4) Actualización cada 1 segundo o cada 1 metro
-            lm.requestLocationUpdates(provider, 1_000L, 1f, listener, Looper.getMainLooper())
-            return listener
-        } catch (e: Exception) {
-            return null
-        }
-    }
-
-    fun stopOdometerTracking(context: Context, listener: LocationListener?) {
-        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
-        if (listener != null) {
-            try {
-                lm.removeUpdates(listener)
-            } catch (_: Exception) {
-                // no-op
-            }
-        }
-    }
-
-    private class OneShot(
-        private val lm: LocationManager,
-        private val onResult: (Location?) -> Unit,
-    ) : LocationListener {
-        private val handler = Handler(Looper.getMainLooper())
-        private var done = false
-
-        fun start(provider: String, timeoutMs: Long) {
-            try {
-                lm.requestSingleUpdate(provider, this, Looper.getMainLooper())
-                handler.postDelayed({ finish(null) }, timeoutMs)
-            } catch (e: Exception) {
-                finish(null)
-            }
-        }
-
-        override fun onLocationChanged(location: Location) = finish(location)
-
-        private fun finish(loc: Location?) {
-            if (done) return
-            done = true
-            handler.removeCallbacksAndMessages(null)
-            try {
+                onResult(location)
                 lm.removeUpdates(this)
-            } catch (e: Exception) {
-                // nada que hacer
             }
-            onResult(loc)
+            override fun onProviderDisabled(provider: String) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
+        try {
+            lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, Looper.getMainLooper())
+            Handler(Looper.getMainLooper()).postDelayed({ 
+                lm.removeUpdates(listener)
+                onResult(null) 
+            }, timeoutMs)
+        } catch (e: Exception) {
+            onResult(null)
         }
     }
 }
