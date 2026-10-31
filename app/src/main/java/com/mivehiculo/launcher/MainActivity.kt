@@ -29,14 +29,12 @@ import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
-    // Variables de GPS
     private var currentSpeedKmh by mutableStateOf("0")
     private var totalOdometer by mutableStateOf("0.0")
     private var locationManager: LocationManager? = null
     private var lastLocation: Location? = null
     private var totalMeters: Double = 0.0
 
-    // Variables del Clima
     private var weatherTemp by mutableStateOf("--°C")
     private var weatherDesc by mutableStateOf("Conectando...")
     private var hasFetchedWeather = false
@@ -68,27 +66,38 @@ class MainActivity : ComponentActivity() {
             val actions = HomeActions(
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
-                openPhone = { try { startActivity(Intent(Intent.ACTION_DIAL)) } catch(e: Exception) {} },
-                openApps = { toast("Apps") },
+                openPhone = { 
+                    // Intentamos abrir la app de teléfono de Jancar o la estándar
+                    val intent = packageManager.getLaunchIntentForPackage("com.jancar.phone") ?: Intent(Intent.ACTION_DIAL)
+                    try { startActivity(intent) } catch(e: Exception) { toast("No se encontró app de teléfono") }
+                },
+                openApps = { 
+                    // Abre los ajustes de apps del sistema como respaldo
+                    try { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) } catch(e: Exception) {}
+                },
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
-                mediaPrev = { toast("Anterior") },
-                mediaPlayPause = { toast("Play/Pausa") },
-                mediaNext = { toast("Siguiente") },
+                mediaPrev = { toast("Anterior (Falta conectar)") },
+                mediaPlayPause = { toast("Play/Pausa (Falta conectar)") },
+                mediaNext = { toast("Siguiente (Falta conectar)") },
                 openNotificationAccess = { toast("Permiso Notificaciones") },
-                openMaintenance = { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) },
+                // DESACTIVAMOS TEMPORALMENTE MANTENIMIENTO PARA QUE NO CRASHEE
+                openMaintenance = { toast("Mantenimiento en construcción") }, 
                 openRearCamera = { toast("Cámara") },
                 pickRearCamera = { toast("Elegir Cámara") },
                 pickRadio = { toast("Elegir Radio") },
-                openAssistant = { startActivity(Intent(this@MainActivity, AssistantActivity::class.java)) }
+                openAssistant = { 
+                    try { startActivity(Intent(this@MainActivity, AssistantActivity::class.java)) } 
+                    catch(e: Exception) { toast("Error al abrir Jarvis") }
+                }
             )
 
             HomeScreen(
                 time = currentTime,
                 date = currentDate,
-                weather = weatherTemp, // Dato real
-                feels = weatherDesc,   // Dato real
+                weather = weatherTemp,
+                feels = weatherDesc,
                 media = MediaState(), 
                 odometerKm = totalOdometer,
                 speedKmh = currentSpeedKmh, 
@@ -102,10 +111,8 @@ class MainActivity : ComponentActivity() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    // Velocidad y Odómetro
                     val speed = location.speed * 3.6f
                     currentSpeedKmh = if (speed > 0) String.format("%.0f", speed) else "0"
-
                     if (lastLocation != null) {
                         val distance = lastLocation!!.distanceTo(location)
                         if (distance > 1.0) {
@@ -114,8 +121,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     lastLocation = location
-
-                    // Obtener el clima la primera vez que tengamos ubicación
                     if (!hasFetchedWeather) {
                         hasFetchedWeather = true
                         fetchWeather(location.latitude, location.longitude)
@@ -130,7 +135,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Lógica del Clima Real usando Open-Meteo
     private fun fetchWeather(lat: Double, lon: Double) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -138,14 +142,11 @@ class MainActivity : ComponentActivity() {
                 val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true"
                 val request = Request.Builder().url(url).build()
                 val response = client.newCall(request).execute()
-
                 if (response.isSuccessful) {
                     val json = JSONObject(response.body?.string() ?: "")
                     val currentWeather = json.getJSONObject("current_weather")
                     val temp = currentWeather.getDouble("temperature")
                     val code = currentWeather.getInt("weathercode")
-
-                    // Traducir el código del clima a texto
                     val descripcion = when (code) {
                         0 -> "Despejado"
                         1, 2, 3 -> "Nublado"
@@ -157,17 +158,10 @@ class MainActivity : ComponentActivity() {
                         95, 96, 99 -> "Tormenta"
                         else -> "Desconocido"
                     }
-
-                    runOnUiThread {
-                        weatherTemp = "${String.format("%.0f", temp)}°C"
-                        weatherDesc = descripcion
-                    }
+                    runOnUiThread { weatherTemp = "${String.format("%.0f", temp)}°C"; weatherDesc = descripcion }
                 }
             } catch (e: Exception) {
-                runOnUiThread {
-                    weatherTemp = "--°C"
-                    weatherDesc = "Sin internet"
-                }
+                runOnUiThread { weatherTemp = "--°C"; weatherDesc = "Sin internet" }
             }
         }
     }
