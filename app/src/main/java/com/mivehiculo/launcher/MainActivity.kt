@@ -67,16 +67,19 @@ class MainActivity : ComponentActivity() {
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
+                    // Intentar abrir la app de teléfono de Jancar usando Intent MAIN
                     try {
-                        // 1. Intentar abrir el marcador estándar de Android
-                        startActivity(Intent(Intent.ACTION_DIAL))
+                        val intent = Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_LAUNCHER)
+                            setPackage("com.android.phone")
+                        }
+                        startActivity(intent)
                     } catch (e: Exception) {
+                        // Si falla, intentar con la acción de marcado general
                         try {
-                            // 2. Si falla, intentar con el paquete de marcador común
-                            val intent = packageManager.getLaunchIntentForPackage("com.android.dialer")
-                            if (intent != null) startActivity(intent) else toast("No se encontró app de teléfono")
+                            startActivity(Intent(Intent.ACTION_DIAL))
                         } catch (e2: Exception) {
-                            toast("No se pudo abrir la app de teléfono")
+                            toast("El sistema bloquea la app de teléfono")
                         }
                     }
                 },
