@@ -35,7 +35,8 @@ import java.util.Locale
 
 class AssistantActivity : ComponentActivity() {
 
-    private val apiKey = "AQUI_TU_API_KEY_DE_GROQ" 
+    // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ⚠️
+    private val apiKey = "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" 
 
     private var isRecording by mutableStateOf(false)
     private var userText by mutableStateOf("Aquí verás lo que dices")
@@ -48,10 +49,16 @@ class AssistantActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inicializar el motor de VOZ (TextToSpeech)
+        // Inicializar el motor de VOZ (TextToSpeech) con verificación de Español
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("es", "ES") // Configurar Español
+                val result = tts?.setLanguage(Locale("es", "ES"))
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    // Si falla el español, mostramos un aviso
+                    Toast.makeText(this, "⚠️ El motor de voz no soporta español. Instala 'Speech Recognition & Synthesis' de Google.", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                Toast.makeText(this, "⚠️ Error al iniciar el motor de voz. Revisa los ajustes de TTS.", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -125,7 +132,7 @@ class AssistantActivity : ComponentActivity() {
         }
 
         try {
-            tts?.stop() // Detener si estaba hablando
+            tts?.stop()
             audioFile = File.createTempFile("audio", ".m4a", cacheDir)
             mediaRecorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -186,10 +193,7 @@ class AssistantActivity : ComponentActivity() {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
                     val textoReconocido = JSONObject(responseBody).getString("text")
-                    
-                    // Detectar palabras clave para abrir apps automáticamente
                     ejecutarAccionLocal(textoReconocido.lowercase())
-
                     runOnUiThread { 
                         userText = textoReconocido
                         enviarTextoAlChat(textoReconocido)
@@ -234,7 +238,6 @@ class AssistantActivity : ComponentActivity() {
                     val respuesta = JSONObject(responseBody).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
                     runOnUiThread { 
                         jarvisText = respuesta 
-                        // Hacer que Jarvis HABLE
                         tts?.speak(respuesta, TextToSpeech.QUEUE_FLUSH, null, "JarvisResponse")
                     }
                 } else {
@@ -244,7 +247,6 @@ class AssistantActivity : ComponentActivity() {
         })
     }
 
-    // Función para que Jarvis "tenga manos" y abra apps
     private fun ejecutarAccionLocal(texto: String) {
         if (texto.contains("radio")) {
             openAppByPackage("com.jancar.radio")
