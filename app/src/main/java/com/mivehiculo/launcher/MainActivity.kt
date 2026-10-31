@@ -67,22 +67,22 @@ class MainActivity : ComponentActivity() {
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
-    try {
-        // Abrimos directamente el paquete del sistema que muestra tu captura
-        val intent = packageManager.getLaunchIntentForPackage("com.android.phone")
-        if (intent != null) {
-            startActivity(intent)
-        } else {
-            // Si no tiene actividad de inicio, usamos ACTION_DIAL especificando el paquete
-            val dialIntent = Intent(Intent.ACTION_DIAL).apply {
-                setPackage("com.android.phone")
-            }
-            startActivity(dialIntent)
-        }
-    } catch (e: Exception) {
-        toast("No se pudo abrir la app de teléfono")
-    }
-}
+                    try {
+                        // Abrimos directamente el paquete del sistema que muestra tu captura
+                        val intent = packageManager.getLaunchIntentForPackage("com.android.phone")
+                        if (intent != null) {
+                            startActivity(intent)
+                        } else {
+                            // Si no tiene actividad de inicio, usamos ACTION_DIAL especificando el paquete
+                            val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                                setPackage("com.android.phone")
+                            }
+                            startActivity(dialIntent)
+                        }
+                    } catch (e: Exception) {
+                        toast("No se pudo abrir la app de teléfono")
+                    }
+                },
                 openApps = { 
                     // Abre los ajustes de apps del sistema como respaldo
                     try { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) } catch(e: Exception) {}
@@ -90,11 +90,10 @@ class MainActivity : ComponentActivity() {
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
-                mediaPrev = { toast("Anterior (Falta conectar)") },
-                mediaPlayPause = { toast("Play/Pausa (Falta conectar)") },
-                mediaNext = { toast("Siguiente (Falta conectar)") },
+                mediaPrev = { toast("Anterior") },
+                mediaPlayPause = { toast("Play/Pausa") },
+                mediaNext = { toast("Siguiente") },
                 openNotificationAccess = { toast("Permiso Notificaciones") },
-                // DESACTIVAMOS TEMPORALMENTE MANTENIMIENTO PARA QUE NO CRASHEE
                 openMaintenance = { toast("Mantenimiento en construcción") }, 
                 openRearCamera = { toast("Cámara") },
                 pickRearCamera = { toast("Elegir Cámara") },
