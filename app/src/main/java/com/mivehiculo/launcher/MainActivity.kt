@@ -68,23 +68,19 @@ class MainActivity : ComponentActivity() {
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
                     try {
-                        // Abrimos directamente el paquete del sistema que muestra tu captura
-                        val intent = packageManager.getLaunchIntentForPackage("com.android.phone")
-                        if (intent != null) {
-                            startActivity(intent)
-                        } else {
-                            // Si no tiene actividad de inicio, usamos ACTION_DIAL especificando el paquete
-                            val dialIntent = Intent(Intent.ACTION_DIAL).apply {
-                                setPackage("com.android.phone")
-                            }
-                            startActivity(dialIntent)
-                        }
+                        // 1. Intentar abrir el marcador estándar de Android
+                        startActivity(Intent(Intent.ACTION_DIAL))
                     } catch (e: Exception) {
-                        toast("No se pudo abrir la app de teléfono")
+                        try {
+                            // 2. Si falla, intentar con el paquete de marcador común
+                            val intent = packageManager.getLaunchIntentForPackage("com.android.dialer")
+                            if (intent != null) startActivity(intent) else toast("No se encontró app de teléfono")
+                        } catch (e2: Exception) {
+                            toast("No se pudo abrir la app de teléfono")
+                        }
                     }
                 },
                 openApps = { 
-                    // Abre los ajustes de apps del sistema como respaldo
                     try { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) } catch(e: Exception) {}
                 },
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
