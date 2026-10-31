@@ -17,28 +17,37 @@ import androidx.core.app.ActivityCompat
 import com.mivehiculo.launcher.data.MediaState
 import com.mivehiculo.launcher.ui.HomeActions
 import com.mivehiculo.launcher.ui.HomeScreen
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
-    // Variables para el GPS
+    // Variables de GPS
     private var currentSpeedKmh by mutableStateOf("0")
     private var totalOdometer by mutableStateOf("0.0")
     private var locationManager: LocationManager? = null
     private var lastLocation: Location? = null
     private var totalMeters: Double = 0.0
 
+    // Variables del Clima
+    private var weatherTemp by mutableStateOf("--°C")
+    private var weatherDesc by mutableStateOf("Conectando...")
+    private var hasFetchedWeather = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Verificar permisos de ubicación
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
         }
 
-        // Iniciar el GPS
         setupGPS()
 
         setContent {
@@ -78,41 +87,88 @@ class MainActivity : ComponentActivity() {
             HomeScreen(
                 time = currentTime,
                 date = currentDate,
-                weather = "24°C", // Luego lo hacemos real
-                feels = "Despejado",
+                weather = weatherTemp, // Dato real
+                feels = weatherDesc,   // Dato real
                 media = MediaState(), 
-                odometerKm = totalOdometer, // Pasamos el odómetro real
-                speedKmh = currentSpeedKmh, // ¡Ojo! Necesitamos asegurarnos de que HomeScreen reciba esto
+                odometerKm = totalOdometer,
+                speedKmh = currentSpeedKmh, 
                 actions = actions
             )
         }
     }
 
-    // Lógica del GPS
     private fun setupGPS() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    // Velocidad en km/h
+                    // Velocidad y Odómetro
                     val speed = location.speed * 3.6f
                     currentSpeedKmh = if (speed > 0) String.format("%.0f", speed) else "0"
 
-                    // Distancia acumulada (Odómetro)
                     if (lastLocation != null) {
                         val distance = lastLocation!!.distanceTo(location)
-                        if (distance > 1.0) { // Ignorar si se movió menos de 1 metro
+                        if (distance > 1.0) {
                             totalMeters += distance
                             totalOdometer = String.format("%.1f", totalMeters / 1000.0)
                         }
                     }
                     lastLocation = location
+
+                    // Obtener el clima la primera vez que tengamos ubicación
+                    if (!hasFetchedWeather) {
+                        hasFetchedWeather = true
+                        fetchWeather(location.latitude, location.longitude)
+                    }
                 }
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                 override fun onProviderEnabled(provider: String) {}
                 override fun onProviderDisabled(provider: String) {}
             }
             locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1f, listener)
+            locationManager?.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000L, 1f, listener)
+        }
+    }
+
+    // Lógica del Clima Real usando Open-Meteo
+    private fun fetchWeather(lat: Double, lon: Double) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val client = OkHttpClient()
+                val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true"
+                val request = Request.Builder().url(url).build()
+                val response = client.newCall(request).execute()
+
+                if (response.isSuccessful) {
+                    val json = JSONObject(response.body?.string() ?: "")
+                    val currentWeather = json.getJSONObject("current_weather")
+                    val temp = currentWeather.getDouble("temperature")
+                    val code = currentWeather.getInt("weathercode")
+
+                    // Traducir el código del clima a texto
+                    val descripcion = when (code) {
+                        0 -> "Despejado"
+                        1, 2, 3 -> "Nublado"
+                        45, 48 -> "Niebla"
+                        51, 53, 55, 56, 57 -> "Llovizna"
+                        61, 63, 65, 66, 67 -> "Lluvia"
+                        71, 73, 75, 77 -> "Nieve"
+                        80, 81, 82 -> "Chubascos"
+                        95, 96, 99 -> "Tormenta"
+                        else -> "Desconocido"
+                    }
+
+                    runOnUiThread {
+                        weatherTemp = "${String.format("%.0f", temp)}°C"
+                        weatherDesc = descripcion
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    weatherTemp = "--°C"
+                    weatherDesc = "Sin internet"
+                }
+            }
         }
     }
 
@@ -122,7 +178,7 @@ class MainActivity : ComponentActivity() {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
         } else {
-            toast("App no encontrada en este dispositivo")
+            toast("App no encontrada")
         }
     }
 
