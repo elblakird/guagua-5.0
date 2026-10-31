@@ -184,7 +184,7 @@ class AssistantActivity : ComponentActivity() {
     private fun enviarTextoAlChat(texto: String) {
         val client = OkHttpClient()
         val json = JSONObject().apply {
-            put("model", "llama3-8b-8192") 
+            put("model", "llama-3.1-8b-instant") 
             put("messages", JSONArray().apply {
                 put(JSONObject().apply {
                     put("role", "system")
