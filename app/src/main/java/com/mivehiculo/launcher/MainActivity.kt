@@ -14,7 +14,6 @@ import com.mivehiculo.launcher.ui.HomeScreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.mivehiculo.launcher.AssistantActivity
 
 class MainActivity : ComponentActivity() {
 
@@ -36,16 +35,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Creamos las acciones reales conectadas a Android
             val actions = HomeActions(
-                openRadio = { toast("Abriendo Radio (pendiente)") },
-                openMusic = { openAppByPackage("com.android.music") },
-                openPhone = { openAppByPackage("com.android.dialer") },
-                openApps = { 
-                    val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_APP_CALCULATOR) }
-                    try { startActivity(intent) } catch(e: Exception) { toast("Sin App Drawer") }
+                openRadio = { openAppByPackage("com.jancar.radio") },
+                openMusic = { openAppByPackage("com.jancar.music") },
+                openPhone = { 
+                    val intent = Intent(Intent.ACTION_DIAL)
+                    try { startActivity(intent) } catch(e: Exception) { toast("No se pudo abrir el teléfono") }
                 },
-                openAndroidAuto = { toast("Abriendo Android Auto (pendiente)") },
+                openApps = { toast("Aquí iría el cajón de apps") }, // El cajón de apps requiere otra configuración
+                openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
                 mediaPrev = { toast("Anterior") },
@@ -58,7 +56,7 @@ class MainActivity : ComponentActivity() {
                 pickRadio = { toast("Seleccionar Radio") },
                 openAssistant = { 
                     try { startActivity(Intent(this@MainActivity, AssistantActivity::class.java)) } 
-                    catch(e: Exception) { toast("Jarvis no instalado") }
+                    catch(e: Exception) { toast("Error al abrir Jarvis") }
                 }
             )
 
@@ -74,17 +72,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Función para abrir apps buscando su paquete
+    // Función para abrir apps usando su nombre de paquete
     private fun openAppByPackage(packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
         } else {
-            toast("App no encontrada en esta radio")
+            toast("App no encontrada: $packageName")
         }
     }
 
-    // Función auxiliar para los Toasts
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
