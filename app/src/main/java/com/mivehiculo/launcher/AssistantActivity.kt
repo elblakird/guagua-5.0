@@ -32,6 +32,7 @@ import java.io.IOException
 
 class AssistantActivity : ComponentActivity() {
 
+    // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ⚠️
     private val apiKey = "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" 
 
     private var isRecording by mutableStateOf(false)
@@ -109,7 +110,6 @@ class AssistantActivity : ComponentActivity() {
 
         try {
             audioFile = File.createTempFile("audio", ".m4a", cacheDir)
-            // EL ARREGLO ESTÁ AQUÍ: Usar el constructor clásico y setAudioSource
             mediaRecorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -122,7 +122,6 @@ class AssistantActivity : ComponentActivity() {
             userText = "Escuchando..."
             jarvisText = ""
         } catch (e: Exception) {
-            // Si falla la grabación, no cerramos la app, mostramos error
             Toast.makeText(this, "Error al grabar. Micrófono no disponible.", Toast.LENGTH_LONG).show()
             isRecording = false
         }
@@ -184,7 +183,8 @@ class AssistantActivity : ComponentActivity() {
     private fun enviarTextoAlChat(texto: String) {
         val client = OkHttpClient()
         val json = JSONObject().apply {
-            put("model", "llama-3.1-8b-instant") 
+            // MODELO ACTUALIZADO Y COMPATIBLE CON GROQ
+            put("model", "openai/gpt-oss-20b") 
             put("messages", JSONArray().apply {
                 put(JSONObject().apply {
                     put("role", "system")
