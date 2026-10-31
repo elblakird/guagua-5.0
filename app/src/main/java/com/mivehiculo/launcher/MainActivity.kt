@@ -67,10 +67,22 @@ class MainActivity : ComponentActivity() {
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
-                    // Intentamos abrir la app de teléfono de Jancar o la estándar
-                    val intent = packageManager.getLaunchIntentForPackage("com.jancar.phone") ?: Intent(Intent.ACTION_DIAL)
-                    try { startActivity(intent) } catch(e: Exception) { toast("No se encontró app de teléfono") }
-                },
+    try {
+        // Abrimos directamente el paquete del sistema que muestra tu captura
+        val intent = packageManager.getLaunchIntentForPackage("com.android.phone")
+        if (intent != null) {
+            startActivity(intent)
+        } else {
+            // Si no tiene actividad de inicio, usamos ACTION_DIAL especificando el paquete
+            val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                setPackage("com.android.phone")
+            }
+            startActivity(dialIntent)
+        }
+    } catch (e: Exception) {
+        toast("No se pudo abrir la app de teléfono")
+    }
+}
                 openApps = { 
                     // Abre los ajustes de apps del sistema como respaldo
                     try { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) } catch(e: Exception) {}
