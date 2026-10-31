@@ -1,13 +1,19 @@
 package com.mivehiculo.launcher
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
+import androidx.core.app.ActivityCompat
 import com.mivehiculo.launcher.data.MediaState
 import com.mivehiculo.launcher.ui.HomeActions
 import com.mivehiculo.launcher.ui.HomeScreen
@@ -17,8 +23,23 @@ import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
+    // Variables para el GPS
+    private var currentSpeedKmh by mutableStateOf("0")
+    private var totalOdometer by mutableStateOf("0.0")
+    private var locationManager: LocationManager? = null
+    private var lastLocation: Location? = null
+    private var totalMeters: Double = 0.0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Verificar permisos de ubicación
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
+        }
+
+        // Iniciar el GPS
+        setupGPS()
 
         setContent {
             val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -38,43 +59,60 @@ class MainActivity : ComponentActivity() {
             val actions = HomeActions(
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
-                openPhone = { 
-                    val intent = Intent(Intent.ACTION_DIAL)
-                    try { startActivity(intent) } catch(e: Exception) { toast("No se pudo abrir el teléfono") }
-                },
-                openApps = { toast("Aquí iría el cajón de apps") },
+                openPhone = { try { startActivity(Intent(Intent.ACTION_DIAL)) } catch(e: Exception) {} },
+                openApps = { toast("Apps") },
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
                 mediaPrev = { toast("Anterior") },
                 mediaPlayPause = { toast("Play/Pausa") },
                 mediaNext = { toast("Siguiente") },
-                openNotificationAccess = { toast("Permiso de Notificaciones") },
-                
-                // ¡AQUÍ ESTÁ EL ARREGLO DE MANTENIMIENTO!
-                openMaintenance = { 
-                    try { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) } 
-                    catch(e: Exception) { toast("Error al abrir Mantenimiento") }
-                },
-                
-                openRearCamera = { toast("Abriendo Cámara") },
-                pickRearCamera = { toast("Seleccionar Cámara") },
-                pickRadio = { toast("Seleccionar Radio") },
-                openAssistant = { 
-                    try { startActivity(Intent(this@MainActivity, AssistantActivity::class.java)) } 
-                    catch(e: Exception) { toast("Error al abrir Jarvis") }
-                }
+                openNotificationAccess = { toast("Permiso Notificaciones") },
+                openMaintenance = { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) },
+                openRearCamera = { toast("Cámara") },
+                pickRearCamera = { toast("Elegir Cámara") },
+                pickRadio = { toast("Elegir Radio") },
+                openAssistant = { startActivity(Intent(this@MainActivity, AssistantActivity::class.java)) }
             )
 
             HomeScreen(
                 time = currentTime,
                 date = currentDate,
-                weather = "24°C",
+                weather = "24°C", // Luego lo hacemos real
                 feels = "Despejado",
                 media = MediaState(), 
-                odometerKm = "0", 
+                odometerKm = totalOdometer, // Pasamos el odómetro real
+                speedKmh = currentSpeedKmh, // ¡Ojo! Necesitamos asegurarnos de que HomeScreen reciba esto
                 actions = actions
             )
+        }
+    }
+
+    // Lógica del GPS
+    private fun setupGPS() {
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            val listener = object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    // Velocidad en km/h
+                    val speed = location.speed * 3.6f
+                    currentSpeedKmh = if (speed > 0) String.format("%.0f", speed) else "0"
+
+                    // Distancia acumulada (Odómetro)
+                    if (lastLocation != null) {
+                        val distance = lastLocation!!.distanceTo(location)
+                        if (distance > 1.0) { // Ignorar si se movió menos de 1 metro
+                            totalMeters += distance
+                            totalOdometer = String.format("%.1f", totalMeters / 1000.0)
+                        }
+                    }
+                    lastLocation = location
+                }
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }
+            locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1f, listener)
         }
     }
 
