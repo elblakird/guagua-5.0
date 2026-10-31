@@ -1,9 +1,11 @@
 package com.mivehiculo.launcher
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,11 +31,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.util.Locale
 
 class AssistantActivity : ComponentActivity() {
 
-    // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ⚠️
-    private val apiKey = "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" 
+    private val apiKey = "AQUI_TU_API_KEY_DE_GROQ" 
 
     private var isRecording by mutableStateOf(false)
     private var userText by mutableStateOf("Aquí verás lo que dices")
@@ -41,9 +43,17 @@ class AssistantActivity : ComponentActivity() {
 
     private var mediaRecorder: MediaRecorder? = null
     private var audioFile: File? = null
+    private var tts: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Inicializar el motor de VOZ (TextToSpeech)
+        tts = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("es", "ES") // Configurar Español
+            }
+        }
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
@@ -101,6 +111,12 @@ class AssistantActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        tts?.stop()
+        tts?.shutdown()
+    }
+
     private fun startRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "¡Falta el permiso de micrófono!", Toast.LENGTH_SHORT).show()
@@ -109,6 +125,7 @@ class AssistantActivity : ComponentActivity() {
         }
 
         try {
+            tts?.stop() // Detener si estaba hablando
             audioFile = File.createTempFile("audio", ".m4a", cacheDir)
             mediaRecorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -169,6 +186,10 @@ class AssistantActivity : ComponentActivity() {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
                     val textoReconocido = JSONObject(responseBody).getString("text")
+                    
+                    // Detectar palabras clave para abrir apps automáticamente
+                    ejecutarAccionLocal(textoReconocido.lowercase())
+
                     runOnUiThread { 
                         userText = textoReconocido
                         enviarTextoAlChat(textoReconocido)
@@ -183,7 +204,6 @@ class AssistantActivity : ComponentActivity() {
     private fun enviarTextoAlChat(texto: String) {
         val client = OkHttpClient()
         val json = JSONObject().apply {
-            // MODELO ACTUALIZADO Y COMPATIBLE CON GROQ
             put("model", "openai/gpt-oss-20b") 
             put("messages", JSONArray().apply {
                 put(JSONObject().apply {
@@ -212,11 +232,34 @@ class AssistantActivity : ComponentActivity() {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
                     val respuesta = JSONObject(responseBody).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
-                    runOnUiThread { jarvisText = respuesta }
+                    runOnUiThread { 
+                        jarvisText = respuesta 
+                        // Hacer que Jarvis HABLE
+                        tts?.speak(respuesta, TextToSpeech.QUEUE_FLUSH, null, "JarvisResponse")
+                    }
                 } else {
                     runOnUiThread { jarvisText = "Error IA: $responseBody" }
                 }
             }
         })
+    }
+
+    // Función para que Jarvis "tenga manos" y abra apps
+    private fun ejecutarAccionLocal(texto: String) {
+        if (texto.contains("radio")) {
+            openAppByPackage("com.jancar.radio")
+        } else if (texto.contains("música") || texto.contains("musica") || texto.contains("canción")) {
+            openAppByPackage("com.jancar.music")
+        } else if (texto.contains("mapa") || texto.contains("navegación") || texto.contains("google maps")) {
+            openAppByPackage("com.google.android.apps.maps")
+        }
+    }
+
+    private fun openAppByPackage(packageName: String) {
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        }
     }
 }
