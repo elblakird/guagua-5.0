@@ -1,5 +1,6 @@
 package com.mivehiculo.launcher
 
+import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Bundle
@@ -10,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,11 +32,11 @@ import java.io.IOException
 
 class AssistantActivity : ComponentActivity() {
 
-    // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ENTRE LAS COMILLAS ⚠️
-    private val apiKey = "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" 
+    // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ⚠️
+    private val apiKey = "AQUI_TU_API_KEY_DE_GROQ" 
 
     private var isRecording by mutableStateOf(false)
-    private var userText by mutableStateOf("Presiona el micrófono y habla...")
+    private var userText by mutableStateOf("Aquí verás lo que dices")
     private var jarvisText by mutableStateOf("")
 
     private var mediaRecorder: MediaRecorder? = null
@@ -43,48 +45,82 @@ class AssistantActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.RECORD_AUDIO), 101)
+        // Pedir permiso de micrófono al abrir la pantalla
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
         }
 
         setContent {
             Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xFF1E1E1E)),
+                modifier = Modifier.fillMaxSize().background(Color(0xFF1E1E1E)), // Fondo oscuro
                 contentAlignment = Alignment.Center
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Jarvis", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
-                    Text(userText, color = Color.Gray, fontSize = 20.sp)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(jarvisText, color = Color(0xFFFF8C00), fontSize = 24.sp)
-                    
-                    Spacer(modifier = Modifier.height(40.dp))
+                    // Título
+                    Text("Jarvis", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                    Text("Asistente del coche", color = Color.Gray, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(30.dp))
 
+                    // Burbuja del Usuario
+                    Box(
+                        modifier = Modifier.fillMaxWidth().background(Color(0xFF333333), RoundedCornerShape(16.dp)).padding(16.dp)
+                    ) {
+                        Column {
+                            Text("Tú", color = Color.Gray, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(userText, color = Color.White, fontSize = 18.sp)
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Burbuja de Jarvis
+                    if (jarvisText.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().background(Color(0xFF2A1B10), RoundedCornerShape(16.dp)).padding(16.dp)
+                        ) {
+                            Column {
+                                Text("Jarvis", color = Color(0xFFFF8C00), fontSize = 12.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(jarvisText, color = Color.White, fontSize = 18.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Botón del Micrófono
                     Box(
                         modifier = Modifier
-                            .size(100.dp)
+                            .size(90.dp)
                             .background(if (isRecording) Color.Red else Color(0xFFFF8C00), CircleShape)
                             .clickable {
                                 if (isRecording) stopRecording() else startRecording()
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🎤", fontSize = 50.sp)
+                        Text("🎤", fontSize = 40.sp)
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(if (isRecording) "Escuchando..." else "Presiona para hablar", color = Color.Gray)
                 }
             }
         }
     }
 
     private fun startRecording() {
+        // VERIFICACIÓN DE SEGURIDAD PARA QUE NO SE CIERRE LA APP
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "¡Falta el permiso de micrófono!", Toast.LENGTH_SHORT).show()
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
+            return
+        }
+
         try {
             audioFile = File.createTempFile("audio", ".m4a", cacheDir)
-            // this@AssistantActivity es necesario para Android 11
             mediaRecorder = MediaRecorder(this@AssistantActivity).apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -97,7 +133,8 @@ class AssistantActivity : ComponentActivity() {
             userText = "Escuchando..."
             jarvisText = ""
         } catch (e: Exception) {
-            Toast.makeText(this, "Error al grabar: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error al grabar. ¿Tiene micrófono la VM?", Toast.LENGTH_LONG).show()
+            isRecording = false
         }
     }
 
@@ -107,10 +144,9 @@ class AssistantActivity : ComponentActivity() {
             mediaRecorder?.release()
             mediaRecorder = null
             isRecording = false
-            userText = "Procesando audio..."
+            userText = "Procesando..."
             enviarAudioAGroq()
         } catch (e: Exception) {
-            Toast.makeText(this, "Error al detener: ${e.message}", Toast.LENGTH_SHORT).show()
             isRecording = false
         }
     }
@@ -128,7 +164,7 @@ class AssistantActivity : ComponentActivity() {
             .setType(MultipartBody.FORM)
             .addFormDataPart("file", file.name, file.asRequestBody("audio/m4a".toMediaTypeOrNull()))
             .addFormDataPart("model", "whisper-large-v3")
-            .addFormDataPart("language", "es")
+            .addFormDataPart("language", "es") 
             .build()
 
         val request = Request.Builder()
@@ -145,10 +181,9 @@ class AssistantActivity : ComponentActivity() {
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
-                    val json = JSONObject(responseBody)
-                    val textoReconocido = json.getString("text")
+                    val textoReconocido = JSONObject(responseBody).getString("text")
                     runOnUiThread { 
-                        userText = "Tú: $textoReconocido"
+                        userText = textoReconocido
                         enviarTextoAlChat(textoReconocido)
                     }
                 } else {
@@ -189,10 +224,8 @@ class AssistantActivity : ComponentActivity() {
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
-                    val json = JSONObject(responseBody)
-                    val choices = json.getJSONArray("choices")
-                    val respuesta = choices.getJSONObject(0).getJSONObject("message").getString("content")
-                    runOnUiThread { jarvisText = "Jarvis: $respuesta" }
+                    val respuesta = JSONObject(responseBody).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+                    runOnUiThread { jarvisText = respuesta }
                 } else {
                     runOnUiThread { jarvisText = "Error IA: $responseBody" }
                 }
