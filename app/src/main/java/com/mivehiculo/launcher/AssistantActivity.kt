@@ -32,8 +32,7 @@ import java.io.IOException
 
 class AssistantActivity : ComponentActivity() {
 
-    // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ⚠️
-    private val apiKey = "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" 
+    private val apiKey = "AQUI_TU_API_KEY_DE_GROQ" 
 
     private var isRecording by mutableStateOf(false)
     private var userText by mutableStateOf("Aquí verás lo que dices")
@@ -45,29 +44,23 @@ class AssistantActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Pedir permiso de micrófono al abrir la pantalla
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
         }
 
         setContent {
             Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xFF1E1E1E)), // Fondo oscuro
+                modifier = Modifier.fillMaxSize().background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Título
                     Text("Jarvis", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                    Text("Asistente del coche", color = Color.Gray, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(30.dp))
 
-                    // Burbuja del Usuario
-                    Box(
-                        modifier = Modifier.fillMaxWidth().background(Color(0xFF333333), RoundedCornerShape(16.dp)).padding(16.dp)
-                    ) {
+                    Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF333333), RoundedCornerShape(16.dp)).padding(16.dp)) {
                         Column {
                             Text("Tú", color = Color.Gray, fontSize = 12.sp)
                             Spacer(modifier = Modifier.height(4.dp))
@@ -77,11 +70,8 @@ class AssistantActivity : ComponentActivity() {
                     
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Burbuja de Jarvis
                     if (jarvisText.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().background(Color(0xFF2A1B10), RoundedCornerShape(16.dp)).padding(16.dp)
-                        ) {
+                        Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF2A1B10), RoundedCornerShape(16.dp)).padding(16.dp)) {
                             Column {
                                 Text("Jarvis", color = Color(0xFFFF8C00), fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -92,7 +82,6 @@ class AssistantActivity : ComponentActivity() {
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Botón del Micrófono
                     Box(
                         modifier = Modifier
                             .size(90.dp)
@@ -112,7 +101,6 @@ class AssistantActivity : ComponentActivity() {
     }
 
     private fun startRecording() {
-        // VERIFICACIÓN DE SEGURIDAD PARA QUE NO SE CIERRE LA APP
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "¡Falta el permiso de micrófono!", Toast.LENGTH_SHORT).show()
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
@@ -121,7 +109,8 @@ class AssistantActivity : ComponentActivity() {
 
         try {
             audioFile = File.createTempFile("audio", ".m4a", cacheDir)
-            mediaRecorder = MediaRecorder(this@AssistantActivity).apply {
+            // EL ARREGLO ESTÁ AQUÍ: Usar el constructor clásico y setAudioSource
+            mediaRecorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -133,7 +122,8 @@ class AssistantActivity : ComponentActivity() {
             userText = "Escuchando..."
             jarvisText = ""
         } catch (e: Exception) {
-            Toast.makeText(this, "Error al grabar. ¿Tiene micrófono la VM?", Toast.LENGTH_LONG).show()
+            // Si falla la grabación, no cerramos la app, mostramos error
+            Toast.makeText(this, "Error al grabar. Micrófono no disponible.", Toast.LENGTH_LONG).show()
             isRecording = false
         }
     }
@@ -153,7 +143,6 @@ class AssistantActivity : ComponentActivity() {
 
     private fun enviarAudioAGroq() {
         val file = audioFile ?: return
-
         if (apiKey == "AQUI_TU_API_KEY_DE_GROQ") {
             jarvisText = "Error: Falta la API Key en el código."
             return
@@ -177,7 +166,6 @@ class AssistantActivity : ComponentActivity() {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread { jarvisText = "Error de red: ${e.message}" }
             }
-
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
@@ -220,7 +208,6 @@ class AssistantActivity : ComponentActivity() {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread { jarvisText = "Error: ${e.message}" }
             }
-
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
                 if (response.isSuccessful && responseBody != null) {
