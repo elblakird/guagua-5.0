@@ -33,7 +33,7 @@ import java.io.IOException
 class AssistantActivity : ComponentActivity() {
 
     // ⚠️ PEGA TU API KEY DE GROQ AQUÍ ⚠️
-    private val apiKey = "AQUI_TU_API_KEY_DE_GROQ" 
+    private val apiKey = "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" 
 
     private var isRecording by mutableStateOf(false)
     private var userText by mutableStateOf("Aquí verás lo que dices")
