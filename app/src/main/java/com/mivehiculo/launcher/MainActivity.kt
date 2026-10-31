@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
                     val intent = Intent(Intent.ACTION_DIAL)
                     try { startActivity(intent) } catch(e: Exception) { toast("No se pudo abrir el teléfono") }
                 },
-                openApps = { toast("Aquí iría el cajón de apps") }, // El cajón de apps requiere otra configuración
+                openApps = { toast("Aquí iría el cajón de apps") },
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
@@ -50,7 +50,13 @@ class MainActivity : ComponentActivity() {
                 mediaPlayPause = { toast("Play/Pausa") },
                 mediaNext = { toast("Siguiente") },
                 openNotificationAccess = { toast("Permiso de Notificaciones") },
-                openMaintenance = { toast("Abriendo Mantenimiento") },
+                
+                // ¡AQUÍ ESTÁ EL ARREGLO DE MANTENIMIENTO!
+                openMaintenance = { 
+                    try { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) } 
+                    catch(e: Exception) { toast("Error al abrir Mantenimiento") }
+                },
+                
                 openRearCamera = { toast("Abriendo Cámara") },
                 pickRearCamera = { toast("Seleccionar Cámara") },
                 pickRadio = { toast("Seleccionar Radio") },
@@ -72,14 +78,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Función para abrir apps usando su nombre de paquete
     private fun openAppByPackage(packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
         } else {
-            toast("App no encontrada: $packageName")
+            toast("App no encontrada en este dispositivo")
         }
     }
 
