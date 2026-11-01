@@ -49,16 +49,15 @@ class AssistantActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inicializar el motor de VOZ (TextToSpeech) con verificación de Español
+        // Inicializar el motor de VOZ
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 val result = tts?.setLanguage(Locale("es", "ES"))
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    // Si falla el español, mostramos un aviso
-                    Toast.makeText(this, "⚠️ El motor de voz no soporta español. Instala 'Speech Recognition & Synthesis' de Google.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "⚠️ Motor de voz sin español. Instala eSpeak NG.", Toast.LENGTH_LONG).show()
                 }
             } else {
-                Toast.makeText(this, "⚠️ Error al iniciar el motor de voz. Revisa los ajustes de TTS.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "⚠️ Error al iniciar motor de voz. Revisa ajustes de TTS.", Toast.LENGTH_LONG).show()
             }
         }
 
