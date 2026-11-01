@@ -39,8 +39,9 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape" />
 
+        <!-- AQUÍ ESTÁ EL ARREGLO DE MANTENIMIENTO -->
         <activity
-            android:name=".MusicPlayerActivity"
+            android:name=".MaintenanceActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
             android:exported="false"
             android:screenOrientation="sensorLandscape" />
