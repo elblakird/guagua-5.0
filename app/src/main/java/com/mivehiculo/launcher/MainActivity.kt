@@ -63,37 +63,41 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // ESTADO DE LA MÚSICA CONECTADO AL SERVICIO
+            val mediaState = MediaListenerService.mediaState
+
             val actions = HomeActions(
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
-                    // Intentar abrir la app de teléfono de Jancar usando Intent MAIN
-                    try {
-                        val intent = Intent(Intent.ACTION_MAIN).apply {
-                            addCategory(Intent.CATEGORY_LAUNCHER)
-                            setPackage("com.android.phone")
-                        }
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        // Si falla, intentar con la acción de marcado general
-                        try {
-                            startActivity(Intent(Intent.ACTION_DIAL))
-                        } catch (e2: Exception) {
-                            toast("El sistema bloquea la app de teléfono")
-                        }
+                    val googleDialerIntent = packageManager.getLaunchIntentForPackage("com.google.android.dialer")
+                    if (googleDialerIntent != null) {
+                        startActivity(googleDialerIntent)
+                    } else {
+                        try { startActivity(Intent(Intent.ACTION_DIAL)) } catch (e: Exception) { toast("Error teléfono") }
                     }
                 },
                 openApps = { 
-                    try { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) } catch(e: Exception) {}
+                    val launcherIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                    try { startActivity(launcherIntent) } catch (e: Exception) { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) }
                 },
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
-                mediaPrev = { toast("Anterior") },
-                mediaPlayPause = { toast("Play/Pausa") },
-                mediaNext = { toast("Siguiente") },
-                openNotificationAccess = { toast("Permiso Notificaciones") },
-                openMaintenance = { toast("Mantenimiento en construcción") }, 
+                
+                // BOTONES DE MÚSICA CONECTADOS
+                mediaPrev = { MediaListenerService().prev() },
+                mediaPlayPause = { MediaListenerService().playPause() },
+                mediaNext = { MediaListenerService().next() },
+                
+                openNotificationAccess = { 
+                    try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } 
+                    catch(e: Exception) { toast("Abre los ajustes de notificaciones manualmente") }
+                },
+                openMaintenance = { 
+                    try { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) } 
+                    catch(e: Exception) { toast("Error al abrir Mantenimiento") }
+                }, 
                 openRearCamera = { toast("Cámara") },
                 pickRearCamera = { toast("Elegir Cámara") },
                 pickRadio = { toast("Elegir Radio") },
@@ -108,7 +112,7 @@ class MainActivity : ComponentActivity() {
                 date = currentDate,
                 weather = weatherTemp,
                 feels = weatherDesc,
-                media = MediaState(), 
+                media = mediaState, // <-- AHORA SÍ, LA MÚSICA REAL
                 odometerKm = totalOdometer,
                 speedKmh = currentSpeedKmh, 
                 actions = actions
@@ -158,15 +162,9 @@ class MainActivity : ComponentActivity() {
                     val temp = currentWeather.getDouble("temperature")
                     val code = currentWeather.getInt("weathercode")
                     val descripcion = when (code) {
-                        0 -> "Despejado"
-                        1, 2, 3 -> "Nublado"
-                        45, 48 -> "Niebla"
-                        51, 53, 55, 56, 57 -> "Llovizna"
-                        61, 63, 65, 66, 67 -> "Lluvia"
-                        71, 73, 75, 77 -> "Nieve"
-                        80, 81, 82 -> "Chubascos"
-                        95, 96, 99 -> "Tormenta"
-                        else -> "Desconocido"
+                        0 -> "Despejado"; 1, 2, 3 -> "Nublado"; 45, 48 -> "Niebla"; 51, 53, 55, 56, 57 -> "Llovizna"
+                        61, 63, 65, 66, 67 -> "Lluvia"; 71, 73, 75, 77 -> "Nieve"; 80, 81, 82 -> "Chubascos"
+                        95, 96, 99 -> "Tormenta"; else -> "Desconocido"
                     }
                     runOnUiThread { weatherTemp = "${String.format("%.0f", temp)}°C"; weatherDesc = descripcion }
                 }
