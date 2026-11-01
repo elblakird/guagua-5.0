@@ -19,22 +19,21 @@ class MediaListenerService : NotificationListenerService() {
         var mediaState by mutableStateOf(MediaState())
         var mediaController: MediaController? = null
 
-        // AQUÍ ESTÁN LAS FUNCIONES QUE FALTABAN
         fun playPause() {
-            if (mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                mediaController?.transportControls?.pause()
-            } else {
-                mediaController?.transportControls?.play()
+            try {
+                // Si el estado es PLAYING, pausamos, si no, le damos play
+                if (mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                    mediaController?.transportControls?.pause()
+                } else {
+                    mediaController?.transportControls?.play()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
-        fun next() {
-            mediaController?.transportControls?.skipToNext()
-        }
-
-        fun prev() {
-            mediaController?.transportControls?.skipToPrevious()
-        }
+        fun next() { mediaController?.transportControls?.skipToNext() }
+        fun prev() { mediaController?.transportControls?.skipToPrevious() }
     }
 
     override fun onListenerConnected() {
@@ -79,6 +78,7 @@ class MediaListenerService : NotificationListenerService() {
         val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
         val playing = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
         
+        // Actualizamos el estado global para que la pantalla se entere
         mediaState = MediaState(
             title = title,
             artist = artist,
