@@ -62,45 +62,51 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ESTADO DE LA MÚSICA CONECTADO AL SERVICIO
             val mediaState = MediaListenerService.mediaState
 
             val actions = HomeActions(
                 openRadio = { openAppByPackage("com.jancar.radio") },
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
-                    val googleDialerIntent = packageManager.getLaunchIntentForPackage("com.google.android.dialer")
-                    if (googleDialerIntent != null) startActivity(googleDialerIntent)
-                    else try { startActivity(Intent(Intent.ACTION_DIAL)) } catch (e: Exception) { toast("Error teléfono") }
+                    // Intento 1: Abrir marcador nativo
+                    try {
+                        val intent = Intent(Intent.ACTION_DIAL)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        // Intento 2: Buscar cualquier app que maneje llamadas
+                        try {
+                            val intent2 = packageManager.getLaunchIntentForPackage("com.android.phone")
+                            if (intent2 != null) startActivity(intent2) else toast("No hay app de teléfono")
+                        } catch (e2: Exception) {
+                            toast("Error al abrir teléfono")
+                        }
+                    }
                 },
                 openApps = { 
-                    val launcherIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
-                    try { startActivity(launcherIntent) } catch (e: Exception) { startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) }
+                    // Abre la lista de "Todas las aplicaciones" de los ajustes (evita el diálogo de Launcher)
+                    try {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                    } catch (e: Exception) {
+                        toast("Error al abrir las aplicaciones")
+                    }
                 },
                 openAndroidAuto = { openAppByPackage("com.google.android.projection.sink") },
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
                 
-                // BOTONES DE MÚSICA CORREGIDOS
-                mediaPrev = { MediaListenerService.mediaController?.transportControls?.skipToPrevious() },
-                mediaPlayPause = { 
-                    if (MediaListenerService.mediaController?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING) {
-                        MediaListenerService.mediaController?.transportControls?.pause()
-                    } else {
-                        MediaListenerService.mediaController?.transportControls?.play()
-                    }
-                },
-                mediaNext = { MediaListenerService.mediaController?.transportControls?.skipToNext() },
+                mediaPrev = { MediaListenerService.prev() },
+                mediaPlayPause = { MediaListenerService.playPause() },
+                mediaNext = { MediaListenerService.next() },
                 
                 openNotificationAccess = { 
                     try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } 
-                    catch(e: Exception) { toast("Ajustes de notificaciones manual") }
+                    catch(e: Exception) { toast("Ve a Ajustes > Acceso a notificaciones") }
                 },
                 openMaintenance = { 
                     try { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) } 
                     catch(e: Exception) { toast("Error al abrir Mantenimiento") }
                 }, 
-                openRearCamera = { toast("Cámara") },
+                openRearCamera = { toast("Cámara no configurada") },
                 pickRearCamera = { toast("Elegir Cámara") },
                 pickRadio = { toast("Elegir Radio") },
                 openAssistant = { 
