@@ -18,6 +18,23 @@ class MediaListenerService : NotificationListenerService() {
     companion object {
         var mediaState by mutableStateOf(MediaState())
         var mediaController: MediaController? = null
+
+        // AQUÍ ESTÁN LAS FUNCIONES QUE FALTABAN
+        fun playPause() {
+            if (mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                mediaController?.transportControls?.pause()
+            } else {
+                mediaController?.transportControls?.play()
+            }
+        }
+
+        fun next() {
+            mediaController?.transportControls?.skipToNext()
+        }
+
+        fun prev() {
+            mediaController?.transportControls?.skipToPrevious()
+        }
     }
 
     override fun onListenerConnected() {
