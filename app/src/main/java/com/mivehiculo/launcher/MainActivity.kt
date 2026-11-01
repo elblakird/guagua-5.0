@@ -14,7 +14,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
-import com.mivehiculo.launcher.data.MediaState
 import com.mivehiculo.launcher.ui.HomeActions
 import com.mivehiculo.launcher.ui.HomeScreen
 import kotlinx.coroutines.CoroutineScope
@@ -71,11 +70,8 @@ class MainActivity : ComponentActivity() {
                 openMusic = { openAppByPackage("com.jancar.music") },
                 openPhone = { 
                     val googleDialerIntent = packageManager.getLaunchIntentForPackage("com.google.android.dialer")
-                    if (googleDialerIntent != null) {
-                        startActivity(googleDialerIntent)
-                    } else {
-                        try { startActivity(Intent(Intent.ACTION_DIAL)) } catch (e: Exception) { toast("Error teléfono") }
-                    }
+                    if (googleDialerIntent != null) startActivity(googleDialerIntent)
+                    else try { startActivity(Intent(Intent.ACTION_DIAL)) } catch (e: Exception) { toast("Error teléfono") }
                 },
                 openApps = { 
                     val launcherIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
@@ -85,14 +81,20 @@ class MainActivity : ComponentActivity() {
                 openNavigation = { openAppByPackage("com.google.android.apps.maps") },
                 openSettings = { startActivity(Intent(Settings.ACTION_SETTINGS)) },
                 
-                // BOTONES DE MÚSICA CONECTADOS
-                mediaPrev = { MediaListenerService().prev() },
-                mediaPlayPause = { MediaListenerService().playPause() },
-                mediaNext = { MediaListenerService().next() },
+                // BOTONES DE MÚSICA CORREGIDOS
+                mediaPrev = { MediaListenerService.mediaController?.transportControls?.skipToPrevious() },
+                mediaPlayPause = { 
+                    if (MediaListenerService.mediaController?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING) {
+                        MediaListenerService.mediaController?.transportControls?.pause()
+                    } else {
+                        MediaListenerService.mediaController?.transportControls?.play()
+                    }
+                },
+                mediaNext = { MediaListenerService.mediaController?.transportControls?.skipToNext() },
                 
                 openNotificationAccess = { 
                     try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } 
-                    catch(e: Exception) { toast("Abre los ajustes de notificaciones manualmente") }
+                    catch(e: Exception) { toast("Ajustes de notificaciones manual") }
                 },
                 openMaintenance = { 
                     try { startActivity(Intent(this@MainActivity, MaintenanceActivity::class.java)) } 
@@ -112,7 +114,7 @@ class MainActivity : ComponentActivity() {
                 date = currentDate,
                 weather = weatherTemp,
                 feels = weatherDesc,
-                media = mediaState, // <-- AHORA SÍ, LA MÚSICA REAL
+                media = mediaState,
                 odometerKm = totalOdometer,
                 speedKmh = currentSpeedKmh, 
                 actions = actions
@@ -166,7 +168,7 @@ class MainActivity : ComponentActivity() {
                         61, 63, 65, 66, 67 -> "Lluvia"; 71, 73, 75, 77 -> "Nieve"; 80, 81, 82 -> "Chubascos"
                         95, 96, 99 -> "Tormenta"; else -> "Desconocido"
                     }
-                    runOnUiThread { weatherTemp = "${String.format("%.0f", temp)}°C"; weatherDesc = descripcion }
+                    runOnUiThread { weatherTemp = String.format("%.0f", temp) + "°C"; weatherDesc = descripcion }
                 }
             } catch (e: Exception) {
                 runOnUiThread { weatherTemp = "--°C"; weatherDesc = "Sin internet" }
