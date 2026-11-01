@@ -5,8 +5,12 @@ import android.content.Context
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.mivehiculo.launcher.data.MediaState
 
 class MediaListenerService : NotificationListenerService() {
@@ -41,7 +45,7 @@ class MediaListenerService : NotificationListenerService() {
                         super.onMetadataChanged(metadata)
                         actualizarEstado(metadata)
                     }
-                    override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) {
+                    override fun onPlaybackStateChanged(state: PlaybackState?) {
                         super.onPlaybackStateChanged(state)
                         actualizarEstado(mediaController?.metadata)
                     }
@@ -56,7 +60,7 @@ class MediaListenerService : NotificationListenerService() {
     private fun actualizarEstado(metadata: MediaMetadata?) {
         val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
         val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
-        val playing = mediaController?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING
+        val playing = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
         
         mediaState = MediaState(
             title = title,
@@ -65,15 +69,4 @@ class MediaListenerService : NotificationListenerService() {
             hasSession = true
         )
     }
-
-    fun playPause() {
-        if (mediaController?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING) {
-            mediaController?.transportControls?.pause()
-        } else {
-            mediaController?.transportControls?.play()
-        }
-    }
-
-    fun next() { mediaController?.transportControls?.skipToNext() }
-    fun prev() { mediaController?.transportControls?.skipToPrevious() }
 }
